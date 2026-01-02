@@ -161,6 +161,7 @@ export default function DepositChart({ data }: DepositChartProps) {
     setSelectedRange(null);
   };
 
+  // Calculate stats for either active drag or selected range
   let rangeStats = null;
   if (selectedRange) {
     rangeStats = calculateRangeStatistics(
@@ -168,6 +169,14 @@ export default function DepositChart({ data }: DepositChartProps) {
       selectedRange.start,
       selectedRange.end
     );
+  } else if (isDragging && dragStart !== null && dragEnd !== null) {
+    // Show stats in real-time while dragging
+    const start = Math.min(dragStart, dragEnd);
+    const end = Math.max(dragStart, dragEnd);
+    // Only show if meaningful range (more than 1 day)
+    if (Math.abs(end - start) > 1000 * 60 * 60 * 24) {
+      rangeStats = calculateRangeStatistics(data, start, end);
+    }
   }
 
   const getRefAreaProps = () => {
