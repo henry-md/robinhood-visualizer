@@ -24,3 +24,48 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Prevent text selection during drag interactions */
+.no-select,
+.no-select * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Also prevent selection on SVG elements from chart libraries */
+.no-select svg,
+.no-select svg *,
+.no-select text,
+.no-select tspan {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Prevent outline/border selection highlight */
+.no-select *::selection,
+.no-select::selection {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.no-select *::-moz-selection,
+.no-select::-moz-selection {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+/* Prevent focus outline on interactive elements */
+.no-select *:focus,
+.no-select:focus {
+  outline: none !important;
+}
+
+/* Prevent any visual selection on drag */
+.no-select * {
+  -webkit-tap-highlight-color: transparent !important;
+}

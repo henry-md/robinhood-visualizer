@@ -112,6 +112,9 @@ export default function DepositChart({ data }: DepositChartProps) {
   const handleChartMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
     if (viewMode !== "cumulative") return;
 
+    // Prevent text selection
+    e.preventDefault();
+
     const timestamp = getTimestampFromX(e.clientX);
     if (timestamp !== null) {
       setDragStart(timestamp);
@@ -123,6 +126,9 @@ export default function DepositChart({ data }: DepositChartProps) {
 
   const handleChartMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
     if (!isDragging || viewMode !== "cumulative") return;
+
+    // Prevent text selection during drag
+    e.preventDefault();
 
     const timestamp = getTimestampFromX(e.clientX);
     if (timestamp !== null) {
@@ -259,12 +265,14 @@ export default function DepositChart({ data }: DepositChartProps) {
 
         <div
           ref={chartContainerRef}
-          className="relative"
+          className="relative no-select"
           onMouseDown={handleChartMouseDown}
           onMouseMove={handleChartMouseMove}
           onMouseUp={handleChartMouseUp}
           onMouseLeave={handleChartMouseLeave}
-          style={{ cursor: viewMode === "cumulative" ? "crosshair" : "default" }}
+          style={{
+            cursor: viewMode === "cumulative" ? "crosshair" : "default",
+          }}
           suppressHydrationWarning
         >
           <ResponsiveContainer width="100%" height={400}>
