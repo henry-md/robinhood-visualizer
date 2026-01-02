@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, MouseEvent } from "react";
+import { useState, useRef, useEffect, MouseEvent as ReactMouseEvent } from "react";
 import {
   BarChart,
   Bar,
@@ -35,6 +35,51 @@ export default function DepositChart({ data }: DepositChartProps) {
     end: number;
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [chartDimensions, setChartDimensions] = useState<{
+    left: number;
+    right: number;
+    width: number;
+  } | null>(null);
+
+  // Calculate chart dimensions on mount and resize
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (chartContainerRef.current) {
+        const rect = chartContainerRef.current.getBoundingClientRect();
+        // Account for chart margins (left: 20, right: 30 from LineChart margin prop)
+        const leftMargin = 60; // Approximate Y-axis width
+        const rightMargin = 30;
+        const width = rect.width - leftMargin - rightMargin;
+        setChartDimensions((prev) => {
+          // Only update if dimensions actually changed
+          if (
+            prev &&
+            prev.left === leftMargin &&
+            prev.right === rect.width - rightMargin &&
+            prev.width === width
+          ) {
+            return prev;
+          }
+          return {
+            left: leftMargin,
+            right: rect.width - rightMargin,
+            width: width,
+          };
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    // Also update after a short delay to ensure ResponsiveContainer has rendered
+    const timeout = setTimeout(updateDimensions, 100);
+
+    return () => {
+      window.removeEventListener("resize", updateDimensions);
+      clearTimeout(timeout);
+    };
+  }, []);
 
   if (data.length === 0) {
     return null;
@@ -46,9 +91,29 @@ export default function DepositChart({ data }: DepositChartProps) {
   const totalDeposits = data.reduce((sum, d) => sum + d.amount, 0);
   const avgDeposit = totalDeposits / data.length;
 
-  const handleMouseDown = (e: any) => {
-    if (e && e.activePayload && e.activePayload.length > 0) {
-      const timestamp = e.activePayload[0].payload.timestamp;
+  const minTimestamp = Math.min(...chartData.map((d) => d.timestamp));
+  const maxTimestamp = Math.max(...chartData.map((d) => d.timestamp));
+
+  // Convert mouse X position to timestamp
+  const getTimestampFromX = (mouseX: number): number | null => {
+    if (!chartContainerRef.current || !chartDimensions) return null;
+
+    const rect = chartContainerRef.current.getBoundingClientRect();
+    const relativeX = mouseX - rect.left - chartDimensions.left;
+    const chartWidth = chartDimensions.width;
+
+    if (relativeX < 0 || relativeX > chartWidth) return null;
+
+    const ratio = relativeX / chartWidth;
+    const timestamp = minTimestamp + ratio * (maxTimestamp - minTimestamp);
+    return timestamp;
+  };
+
+  const handleChartMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    if (viewMode !== "cumulative") return;
+
+    const timestamp = getTimestampFromX(e.clientX);
+    if (timestamp !== null) {
       setDragStart(timestamp);
       setDragEnd(timestamp);
       setIsDragging(true);
@@ -56,14 +121,16 @@ export default function DepositChart({ data }: DepositChartProps) {
     }
   };
 
-  const handleMouseMove = (e: any) => {
-    if (isDragging && e && e.activePayload && e.activePayload.length > 0) {
-      const timestamp = e.activePayload[0].payload.timestamp;
+  const handleChartMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+    if (!isDragging || viewMode !== "cumulative") return;
+
+    const timestamp = getTimestampFromX(e.clientX);
+    if (timestamp !== null) {
       setDragEnd(timestamp);
     }
   };
 
-  const handleMouseUp = () => {
+  const handleChartMouseUp = () => {
     if (isDragging && dragStart !== null && dragEnd !== null) {
       const start = Math.min(dragStart, dragEnd);
       const end = Math.max(dragStart, dragEnd);
@@ -76,6 +143,13 @@ export default function DepositChart({ data }: DepositChartProps) {
     setDragStart(null);
     setDragEnd(null);
   };
+
+  const handleChartMouseLeave = () => {
+    if (isDragging) {
+      handleChartMouseUp();
+    }
+  };
+
 
   const clearSelection = () => {
     setSelectedRange(null);
@@ -103,7 +177,7 @@ export default function DepositChart({ data }: DepositChartProps) {
   const refAreaProps = getRefAreaProps();
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-6" suppressHydrationWarning>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -183,15 +257,21 @@ export default function DepositChart({ data }: DepositChartProps) {
             : "Individual deposit amounts by date"}
         </p>
 
-        <div className="relative">
+        <div
+          ref={chartContainerRef}
+          className="relative"
+          onMouseDown={handleChartMouseDown}
+          onMouseMove={handleChartMouseMove}
+          onMouseUp={handleChartMouseUp}
+          onMouseLeave={handleChartMouseLeave}
+          style={{ cursor: viewMode === "cumulative" ? "crosshair" : "default" }}
+          suppressHydrationWarning
+        >
           <ResponsiveContainer width="100%" height={400}>
             {viewMode === "cumulative" ? (
               <LineChart
                 data={chartData}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid
                   strokeDasharray="3 3"

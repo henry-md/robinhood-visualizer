@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FileUpload from "@/components/FileUpload";
 import DepositChart from "@/components/DepositChart";
 import { parseRobinhoodCSV } from "@/lib/csvParser";
@@ -10,6 +10,11 @@ export default function Home() {
   const [deposits, setDeposits] = useState<DepositData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleFileSelect = async (file: File) => {
     setLoading(true);
@@ -25,6 +30,10 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 font-sans dark:bg-zinc-950">
