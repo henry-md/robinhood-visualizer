@@ -92,6 +92,20 @@ export default function DepositChart({ data }: DepositChartProps) {
   const cumulativeData = calculateCumulativeDeposits(data);
   const chartData = viewMode === "cumulative" ? cumulativeData : data;
 
+  // Filter data for display based on zoom
+  const displayData = zoomedRange
+    ? chartData.filter(
+        (d) => d.timestamp >= zoomedRange.start && d.timestamp <= zoomedRange.end
+      )
+    : chartData;
+
+  console.log("📊 Chart Data:", {
+    totalDataPoints: chartData.length,
+    displayDataPoints: displayData.length,
+    zoomedRange: zoomedRange,
+    viewMode: viewMode,
+  });
+
   const totalDeposits = data.reduce((sum, d) => sum + d.amount, 0);
   const avgDeposit = totalDeposits / data.length;
 
@@ -101,6 +115,19 @@ export default function DepositChart({ data }: DepositChartProps) {
   // Use zoomed range if available, otherwise use full range
   const minTimestamp = zoomedRange ? zoomedRange.start : allMinTimestamp;
   const maxTimestamp = zoomedRange ? zoomedRange.end : allMaxTimestamp;
+
+  // Calculate domain with padding
+  const range = maxTimestamp - minTimestamp;
+  const padding = range * 0.05;
+  const domainMin = minTimestamp - padding;
+  const domainMax = maxTimestamp + padding;
+
+  console.log("📐 Domain:", {
+    minTimestamp: new Date(minTimestamp).toLocaleDateString(),
+    maxTimestamp: new Date(maxTimestamp).toLocaleDateString(),
+    domainMin: new Date(domainMin).toLocaleDateString(),
+    domainMax: new Date(domainMax).toLocaleDateString(),
+  });
 
   // Convert mouse X position to timestamp
   const getTimestampFromX = (mouseX: number): number | null => {
@@ -113,20 +140,11 @@ export default function DepositChart({ data }: DepositChartProps) {
     if (relativeX < 0 || relativeX > chartWidth) return null;
 
     const ratio = relativeX / chartWidth;
-
-    // Account for domain padding (5% on each side)
-    const range = maxTimestamp - minTimestamp;
-    const padding = range * 0.05;
-    const domainMin = minTimestamp - padding;
-    const domainMax = maxTimestamp + padding;
-
     const timestamp = domainMin + ratio * (domainMax - domainMin);
     return timestamp;
   };
 
   const handleChartMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
-    if (viewMode !== "cumulative") return;
-
     // Prevent text selection
     e.preventDefault();
 
@@ -140,7 +158,7 @@ export default function DepositChart({ data }: DepositChartProps) {
   };
 
   const handleChartMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
-    if (!isDragging || viewMode !== "cumulative") return;
+    if (!isDragging) return;
 
     // Prevent text selection during drag
     e.preventDefault();
@@ -178,12 +196,17 @@ export default function DepositChart({ data }: DepositChartProps) {
 
   const handleZoomIn = () => {
     if (selectedRange) {
+      console.log("🔍 ZOOM IN - Selected Range:", selectedRange);
+      console.log("🔍 ZOOM IN - Setting zoomed range");
       setZoomedRange(selectedRange);
       setSelectedRange(null);
+    } else {
+      console.log("⚠️ ZOOM IN - No selected range!");
     }
   };
 
   const handleResetZoom = () => {
+    console.log("🔄 RESET ZOOM - Clearing zoom");
     setZoomedRange(null);
     setSelectedRange(null);
   };
@@ -259,14 +282,14 @@ export default function DepositChart({ data }: DepositChartProps) {
             {viewMode === "cumulative"
               ? "Cumulative Deposits"
               : "Deposit History"}
-            {zoomedRange && viewMode === "cumulative" && (
+            {zoomedRange && (
               <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">
                 (Zoomed)
               </span>
             )}
           </h2>
           <div className="flex items-center gap-4">
-            {zoomedRange && viewMode === "cumulative" && (
+            {zoomedRange && (
               <button
                 onClick={handleResetZoom}
                 className="rounded-md bg-zinc-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-600 transition-colors"
@@ -309,9 +332,7 @@ export default function DepositChart({ data }: DepositChartProps) {
         </div>
 
         <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-          {viewMode === "cumulative"
-            ? "Drag across the chart to select a time range and see detailed statistics"
-            : "Individual deposit amounts by date"}
+          Drag across the chart to select a time range and see detailed statistics
         </p>
 
         <div
@@ -322,14 +343,14 @@ export default function DepositChart({ data }: DepositChartProps) {
           onMouseUp={handleChartMouseUp}
           onMouseLeave={handleChartMouseLeave}
           style={{
-            cursor: viewMode === "cumulative" ? "crosshair" : "default",
+            cursor: "crosshair",
           }}
           suppressHydrationWarning
         >
           <ResponsiveContainer width="100%" height={400}>
             {viewMode === "cumulative" ? (
               <LineChart
-                data={chartData}
+                data={displayData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid
@@ -339,18 +360,7 @@ export default function DepositChart({ data }: DepositChartProps) {
                 <XAxis
                   dataKey="timestamp"
                   type="number"
-                  domain={[
-                    (dataMin: number) => {
-                      const range = maxTimestamp - minTimestamp;
-                      const padding = range * 0.05;
-                      return minTimestamp - padding;
-                    },
-                    (dataMax: number) => {
-                      const range = maxTimestamp - minTimestamp;
-                      const padding = range * 0.05;
-                      return maxTimestamp + padding;
-                    },
-                  ]}
+                  domain={[domainMin, domainMax]}
                   className="text-xs text-zinc-500 dark:text-zinc-400"
                   angle={-45}
                   textAnchor="end"
@@ -432,7 +442,7 @@ export default function DepositChart({ data }: DepositChartProps) {
                 />
               </LineChart>
             ) : (
-              <BarChart data={chartData} margin={{ top: 5, right: 30, left: 50, bottom: 5 }}>
+              <BarChart data={displayData} margin={{ top: 5, right: 30, left: 50, bottom: 5 }}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   className="stroke-zinc-200 dark:stroke-zinc-800"
@@ -440,18 +450,7 @@ export default function DepositChart({ data }: DepositChartProps) {
                 <XAxis
                   dataKey="timestamp"
                   type="number"
-                  domain={[
-                    (dataMin: number) => {
-                      const range = maxTimestamp - minTimestamp;
-                      const padding = range * 0.05;
-                      return dataMin - padding;
-                    },
-                    (dataMax: number) => {
-                      const range = maxTimestamp - minTimestamp;
-                      const padding = range * 0.05;
-                      return dataMax + padding;
-                    },
-                  ]}
+                  domain={[domainMin, domainMax]}
                   className="text-xs text-zinc-500 dark:text-zinc-400"
                   angle={-45}
                   textAnchor="end"
@@ -504,6 +503,24 @@ export default function DepositChart({ data }: DepositChartProps) {
                   }}
                 />
                 <Legend />
+                {refAreaProps && (
+                  <ReferenceArea
+                    x1={refAreaProps.x1}
+                    x2={refAreaProps.x2}
+                    strokeOpacity={0.3}
+                    fill="#22c55e"
+                    fillOpacity={0.3}
+                  />
+                )}
+                {selectedRange && (
+                  <ReferenceArea
+                    x1={selectedRange.start}
+                    x2={selectedRange.end}
+                    strokeOpacity={0.3}
+                    fill="#22c55e"
+                    fillOpacity={0.2}
+                  />
+                )}
                 <Bar
                   dataKey="amount"
                   fill="#22c55e"
@@ -582,14 +599,24 @@ export default function DepositChart({ data }: DepositChartProps) {
               {!isDragging && (
                 <div className="mt-4 flex gap-2">
                   <button
-                    onClick={handleZoomIn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log("🖱️ Zoom button clicked!");
+                      handleZoomIn();
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
                     className="flex-1 rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 transition-colors"
                   >
                     Zoom to Range
                   </button>
                   {zoomedRange && (
                     <button
-                      onClick={handleResetZoom}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log("🖱️ Reset zoom button clicked!");
+                        handleResetZoom();
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
                       className="flex-1 rounded-md bg-zinc-500 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-600 transition-colors"
                     >
                       Reset Zoom
