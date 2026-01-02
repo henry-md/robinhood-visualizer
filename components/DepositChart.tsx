@@ -35,6 +35,10 @@ export default function DepositChart({ data }: DepositChartProps) {
     end: number;
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [zoomedRange, setZoomedRange] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [chartDimensions, setChartDimensions] = useState<{
     left: number;
@@ -91,8 +95,12 @@ export default function DepositChart({ data }: DepositChartProps) {
   const totalDeposits = data.reduce((sum, d) => sum + d.amount, 0);
   const avgDeposit = totalDeposits / data.length;
 
-  const minTimestamp = Math.min(...chartData.map((d) => d.timestamp));
-  const maxTimestamp = Math.max(...chartData.map((d) => d.timestamp));
+  const allMinTimestamp = Math.min(...chartData.map((d) => d.timestamp));
+  const allMaxTimestamp = Math.max(...chartData.map((d) => d.timestamp));
+
+  // Use zoomed range if available, otherwise use full range
+  const minTimestamp = zoomedRange ? zoomedRange.start : allMinTimestamp;
+  const maxTimestamp = zoomedRange ? zoomedRange.end : allMaxTimestamp;
 
   // Convert mouse X position to timestamp
   const getTimestampFromX = (mouseX: number): number | null => {
@@ -158,6 +166,18 @@ export default function DepositChart({ data }: DepositChartProps) {
 
 
   const clearSelection = () => {
+    setSelectedRange(null);
+  };
+
+  const handleZoomIn = () => {
+    if (selectedRange) {
+      setZoomedRange(selectedRange);
+      setSelectedRange(null);
+    }
+  };
+
+  const handleResetZoom = () => {
+    setZoomedRange(null);
     setSelectedRange(null);
   };
 
@@ -232,37 +252,52 @@ export default function DepositChart({ data }: DepositChartProps) {
             {viewMode === "cumulative"
               ? "Cumulative Deposits"
               : "Deposit History"}
+            {zoomedRange && viewMode === "cumulative" && (
+              <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">
+                (Zoomed)
+              </span>
+            )}
           </h2>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">
-              Individual
-            </span>
-            <button
-              onClick={() => {
-                setViewMode(
-                  viewMode === "individual" ? "cumulative" : "individual"
-                );
-                clearSelection();
-              }}
-              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              style={{
-                backgroundColor:
-                  viewMode === "cumulative" ? "#22c55e" : "#d4d4d8",
-              }}
-            >
-              <span
-                className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-                style={{
-                  transform:
-                    viewMode === "cumulative"
-                      ? "translateX(24px)"
-                      : "translateX(4px)",
+          <div className="flex items-center gap-4">
+            {zoomedRange && viewMode === "cumulative" && (
+              <button
+                onClick={handleResetZoom}
+                className="rounded-md bg-zinc-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-600 transition-colors"
+              >
+                Reset Zoom
+              </button>
+            )}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                Individual
+              </span>
+              <button
+                onClick={() => {
+                  setViewMode(
+                    viewMode === "individual" ? "cumulative" : "individual"
+                  );
+                  clearSelection();
                 }}
-              />
-            </button>
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">
-              Cumulative
-            </span>
+                className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                style={{
+                  backgroundColor:
+                    viewMode === "cumulative" ? "#22c55e" : "#d4d4d8",
+                }}
+              >
+                <span
+                  className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                  style={{
+                    transform:
+                      viewMode === "cumulative"
+                        ? "translateX(24px)"
+                        : "translateX(4px)",
+                  }}
+                />
+              </button>
+              <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                Cumulative
+              </span>
+            </div>
           </div>
         </div>
 
@@ -297,7 +332,18 @@ export default function DepositChart({ data }: DepositChartProps) {
                 <XAxis
                   dataKey="timestamp"
                   type="number"
-                  domain={["dataMin", "dataMax"]}
+                  domain={[
+                    (dataMin: number) => {
+                      const range = maxTimestamp - minTimestamp;
+                      const padding = range * 0.05;
+                      return minTimestamp - padding;
+                    },
+                    (dataMax: number) => {
+                      const range = maxTimestamp - minTimestamp;
+                      const padding = range * 0.05;
+                      return maxTimestamp + padding;
+                    },
+                  ]}
                   className="text-xs text-zinc-500 dark:text-zinc-400"
                   angle={-45}
                   textAnchor="end"
@@ -465,7 +511,7 @@ export default function DepositChart({ data }: DepositChartProps) {
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-300 bg-white/95 p-4 shadow-lg backdrop-blur-sm dark:border-zinc-700 dark:bg-zinc-900/95">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                  Selected Range
+                  {isDragging ? "Selecting Range" : "Selected Range"}
                 </h3>
                 <button
                   onClick={clearSelection}
@@ -526,6 +572,24 @@ export default function DepositChart({ data }: DepositChartProps) {
                   </span>
                 </div>
               </div>
+              {!isDragging && (
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={handleZoomIn}
+                    className="flex-1 rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 transition-colors"
+                  >
+                    Zoom to Range
+                  </button>
+                  {zoomedRange && (
+                    <button
+                      onClick={handleResetZoom}
+                      className="flex-1 rounded-md bg-zinc-500 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-600 transition-colors"
+                    >
+                      Reset Zoom
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
