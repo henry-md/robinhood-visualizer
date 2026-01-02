@@ -19,8 +19,10 @@ export function parseRobinhoodCSV(file: File): Promise<DepositData[]> {
               const amount = parseFloat(
                 row.Amount.replace(/[$,()]/g, "").trim()
               );
+              const dateObj = new Date(row["Activity Date"]);
               return {
                 date: row["Activity Date"],
+                timestamp: dateObj.getTime(),
                 amount: amount,
               };
             })
