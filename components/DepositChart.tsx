@@ -298,10 +298,23 @@ export default function DepositChart({ data }: DepositChartProps) {
                   tickFormatter={(value) => `$${value.toLocaleString()}`}
                 />
                 <Tooltip
+                  wrapperStyle={{ zIndex: 1000 }}
+                  cursor={{ fill: "rgba(0, 0, 0, 0.1)" }}
                   contentStyle={{
-                    backgroundColor: "rgba(255, 255, 255, 0.95)",
-                    border: "1px solid #e4e4e7",
+                    backgroundColor: "rgba(0, 0, 0, 0.85)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
                     borderRadius: "8px",
+                    padding: "12px",
+                  }}
+                  labelStyle={{
+                    color: "#ffffff",
+                    fontWeight: "600",
+                    marginBottom: "4px",
+                    fontSize: "14px",
+                  }}
+                  itemStyle={{
+                    color: "#22c55e",
+                    fontSize: "14px",
                   }}
                   labelFormatter={(timestamp) =>
                     new Date(timestamp).toLocaleDateString("en-US", {
@@ -349,7 +362,7 @@ export default function DepositChart({ data }: DepositChartProps) {
                 />
               </LineChart>
             ) : (
-              <BarChart data={chartData}>
+              <BarChart data={chartData} margin={{ top: 5, right: 30, left: 50, bottom: 5 }}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   className="stroke-zinc-200 dark:stroke-zinc-800"
@@ -357,7 +370,18 @@ export default function DepositChart({ data }: DepositChartProps) {
                 <XAxis
                   dataKey="timestamp"
                   type="number"
-                  domain={["dataMin", "dataMax"]}
+                  domain={[
+                    (dataMin: number) => {
+                      const range = maxTimestamp - minTimestamp;
+                      const padding = range * 0.05;
+                      return dataMin - padding;
+                    },
+                    (dataMax: number) => {
+                      const range = maxTimestamp - minTimestamp;
+                      const padding = range * 0.05;
+                      return dataMax + padding;
+                    },
+                  ]}
                   className="text-xs text-zinc-500 dark:text-zinc-400"
                   angle={-45}
                   textAnchor="end"
@@ -375,10 +399,23 @@ export default function DepositChart({ data }: DepositChartProps) {
                   tickFormatter={(value) => `$${value.toLocaleString()}`}
                 />
                 <Tooltip
+                  wrapperStyle={{ zIndex: 1000 }}
+                  cursor={{ fill: "rgba(0, 0, 0, 0.1)" }}
                   contentStyle={{
-                    backgroundColor: "rgba(255, 255, 255, 0.95)",
-                    border: "1px solid #e4e4e7",
+                    backgroundColor: "rgba(0, 0, 0, 0.85)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
                     borderRadius: "8px",
+                    padding: "12px",
+                  }}
+                  labelStyle={{
+                    color: "#ffffff",
+                    fontWeight: "600",
+                    marginBottom: "4px",
+                    fontSize: "14px",
+                  }}
+                  itemStyle={{
+                    color: "#22c55e",
+                    fontSize: "14px",
                   }}
                   labelFormatter={(timestamp) =>
                     new Date(timestamp).toLocaleDateString("en-US", {
