@@ -113,7 +113,14 @@ export default function DepositChart({ data }: DepositChartProps) {
     if (relativeX < 0 || relativeX > chartWidth) return null;
 
     const ratio = relativeX / chartWidth;
-    const timestamp = minTimestamp + ratio * (maxTimestamp - minTimestamp);
+
+    // Account for domain padding (5% on each side)
+    const range = maxTimestamp - minTimestamp;
+    const padding = range * 0.05;
+    const domainMin = minTimestamp - padding;
+    const domainMax = maxTimestamp + padding;
+
+    const timestamp = domainMin + ratio * (domainMax - domainMin);
     return timestamp;
   };
 
