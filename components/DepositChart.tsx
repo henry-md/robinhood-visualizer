@@ -117,6 +117,30 @@ export default function DepositChart({ data }: DepositChartProps) {
   const domainMin = minTimestamp - padding;
   const domainMax = maxTimestamp + padding;
 
+  // Calculate dynamic bar size based on zoom level
+  const fullTimeRange = allMaxTimestamp - allMinTimestamp;
+  const currentTimeRange = maxTimestamp - minTimestamp;
+  const zoomRatio = fullTimeRange / currentTimeRange;
+  const dynamicBarSize = Math.min(50, Math.max(4, 6 + 5 * zoomRatio));
+
+  // Custom bar shape with fixed width
+  const CustomBar = (props: any) => {
+    const { fill, x, y, width, height } = props;
+    const barWidth = dynamicBarSize;
+    const centerX = x + width / 2;
+    const adjustedX = centerX - barWidth / 2;
+
+    return (
+      <rect
+        x={adjustedX}
+        y={y}
+        width={barWidth}
+        height={height}
+        fill={fill}
+      />
+    );
+  };
+
   // Convert mouse X position to timestamp
   const getTimestampFromX = (mouseX: number): number | null => {
     if (!chartContainerRef.current || !chartDimensions) return null;
@@ -436,7 +460,10 @@ export default function DepositChart({ data }: DepositChartProps) {
                 />
               </LineChart>
             ) : (
-              <BarChart data={displayData} margin={{ top: 5, right: 30, left: 50, bottom: 5 }}>
+              <BarChart
+                data={displayData}
+                margin={{ top: 5, right: 30, left: 50, bottom: 5 }}
+              >
                 <CartesianGrid
                   strokeDasharray="3 3"
                   className="stroke-zinc-200 dark:stroke-zinc-800"
@@ -519,13 +546,13 @@ export default function DepositChart({ data }: DepositChartProps) {
                   dataKey="deposit"
                   fill="#22c55e"
                   name="Deposits"
-                  radius={[8, 8, 0, 0]}
+                  shape={<CustomBar />}
                 />
                 <Bar
                   dataKey="withdrawal"
                   fill="#dc2626"
                   name="Withdrawals"
-                  radius={[8, 8, 0, 0]}
+                  shape={<CustomBar />}
                 />
               </BarChart>
             )}
