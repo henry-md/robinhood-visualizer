@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
   Legend,
   ReferenceArea,
+  ReferenceLine,
 } from "recharts";
 import { DepositData } from "@/lib/types";
 import {
@@ -45,6 +46,7 @@ export default function DepositChart({ data }: DepositChartProps) {
     right: number;
     width: number;
   } | null>(null);
+  const [currentTime] = useState(() => Date.now()); // Runs once on mount
 
   // Calculate chart dimensions on mount and resize
   useEffect(() => {
@@ -89,15 +91,20 @@ export default function DepositChart({ data }: DepositChartProps) {
     return null;
   }
 
-  const cumulativeData = calculateCumulativeDeposits(data);
-  const chartData = viewMode === "cumulative" ? cumulativeData : data;
-
-  // Filter data for display based on zoom
-  const displayData = zoomedRange
-    ? chartData.filter(
+  // Filter data based on zoom first, then apply cumulative transformation
+  // This ensures cumulative view starts from 0 when zoomed
+  const baseData = zoomedRange
+    ? data.filter(
         (d) => d.timestamp >= zoomedRange.start && d.timestamp <= zoomedRange.end
       )
-    : chartData;
+    : data;
+
+  // Apply view mode transformation to the filtered data
+  const chartData = viewMode === "cumulative"
+    ? calculateCumulativeDeposits(baseData)
+    : baseData;
+
+  const displayData = chartData;
 
   // Filter original data for stats based on zoom (not cumulative data)
   const displayDataForStats = zoomedRange
@@ -110,6 +117,13 @@ export default function DepositChart({ data }: DepositChartProps) {
   const totalWithdrawals = displayDataForStats.reduce((sum, d) => sum + (d.withdrawal || 0), 0);
   const netAmount = totalDeposits - totalWithdrawals;
   const avgDeposit = totalDeposits / displayDataForStats.length;
+
+  // Calculate time range in months for net amount per month
+  const timeRangeMs = displayDataForStats.length > 0
+    ? Math.max(...displayDataForStats.map(d => d.timestamp)) - Math.min(...displayDataForStats.map(d => d.timestamp))
+    : 0;
+  const timeRangeMonths = timeRangeMs / (1000 * 60 * 60 * 24 * 30.44); // Average days per month
+  const netAmountPerMonth = timeRangeMonths > 0 ? netAmount / timeRangeMonths : netAmount;
 
   const allMinTimestamp = Math.min(...chartData.map((d) => d.timestamp));
   const allMaxTimestamp = Math.max(...chartData.map((d) => d.timestamp));
@@ -297,10 +311,10 @@ export default function DepositChart({ data }: DepositChartProps) {
         </div>
         <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Net Amount
+            Net Amount per mo
           </p>
           <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            ${netAmount.toLocaleString("en-US", {
+            ${netAmountPerMonth.toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
@@ -471,6 +485,21 @@ export default function DepositChart({ data }: DepositChartProps) {
                     fillOpacity={0.2}
                   />
                 )}
+                {currentTime >= domainMin && currentTime <= domainMax && (
+                  <ReferenceLine
+                    x={currentTime}
+                    stroke="#dc2626"
+                    strokeDasharray="3 3"
+                    strokeWidth={2}
+                    label={{
+                      value: "Now",
+                      position: "top",
+                      fill: "#dc2626",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  />
+                )}
                 <Line
                   type="monotone"
                   dataKey="cumulative"
@@ -562,6 +591,21 @@ export default function DepositChart({ data }: DepositChartProps) {
                     strokeOpacity={0.3}
                     fill="#22c55e"
                     fillOpacity={0.2}
+                  />
+                )}
+                {currentTime >= domainMin && currentTime <= domainMax && (
+                  <ReferenceLine
+                    x={currentTime}
+                    stroke="#dc2626"
+                    strokeDasharray="3 3"
+                    strokeWidth={2}
+                    label={{
+                      value: "Now",
+                      position: "top",
+                      fill: "#dc2626",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
                   />
                 )}
                 <Bar
