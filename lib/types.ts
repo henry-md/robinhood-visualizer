@@ -10,11 +10,17 @@ export interface RobinhoodTransaction {
   "Amount": string;
 }
 
-export interface DepositData {
+export interface TransactionData {
   date: string;
   timestamp: number;
-  amount: number;
+  deposit: number;
+  withdrawal: number;
   cumulative?: number;
+}
+
+// Keep for backwards compatibility
+export interface DepositData extends TransactionData {
+  amount: number;
 }
 
 export interface RangeSelection {

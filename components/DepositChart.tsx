@@ -99,14 +99,9 @@ export default function DepositChart({ data }: DepositChartProps) {
       )
     : chartData;
 
-  console.log("📊 Chart Data:", {
-    totalDataPoints: chartData.length,
-    displayDataPoints: displayData.length,
-    zoomedRange: zoomedRange,
-    viewMode: viewMode,
-  });
-
-  const totalDeposits = data.reduce((sum, d) => sum + d.amount, 0);
+  const totalDeposits = data.reduce((sum, d) => sum + (d.deposit || d.amount || 0), 0);
+  const totalWithdrawals = data.reduce((sum, d) => sum + (d.withdrawal || 0), 0);
+  const netAmount = totalDeposits - totalWithdrawals;
   const avgDeposit = totalDeposits / data.length;
 
   const allMinTimestamp = Math.min(...chartData.map((d) => d.timestamp));
@@ -121,13 +116,6 @@ export default function DepositChart({ data }: DepositChartProps) {
   const padding = range * 0.05;
   const domainMin = minTimestamp - padding;
   const domainMax = maxTimestamp + padding;
-
-  console.log("📐 Domain:", {
-    minTimestamp: new Date(minTimestamp).toLocaleDateString(),
-    maxTimestamp: new Date(maxTimestamp).toLocaleDateString(),
-    domainMin: new Date(domainMin).toLocaleDateString(),
-    domainMax: new Date(domainMax).toLocaleDateString(),
-  });
 
   // Convert mouse X position to timestamp
   const getTimestampFromX = (mouseX: number): number | null => {
@@ -196,17 +184,12 @@ export default function DepositChart({ data }: DepositChartProps) {
 
   const handleZoomIn = () => {
     if (selectedRange) {
-      console.log("🔍 ZOOM IN - Selected Range:", selectedRange);
-      console.log("🔍 ZOOM IN - Setting zoomed range");
       setZoomedRange(selectedRange);
       setSelectedRange(null);
-    } else {
-      console.log("⚠️ ZOOM IN - No selected range!");
     }
   };
 
   const handleResetZoom = () => {
-    console.log("🔄 RESET ZOOM - Clearing zoom");
     setZoomedRange(null);
     setSelectedRange(null);
   };
@@ -243,12 +226,12 @@ export default function DepositChart({ data }: DepositChartProps) {
 
   return (
     <div className="w-full space-y-6" suppressHydrationWarning>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             Total Deposits
           </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
             ${totalDeposits.toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
@@ -257,10 +240,10 @@ export default function DepositChart({ data }: DepositChartProps) {
         </div>
         <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Average Deposit
+            Total Withdrawals
           </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            ${avgDeposit.toLocaleString("en-US", {
+          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+            ${totalWithdrawals.toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
@@ -268,7 +251,18 @@ export default function DepositChart({ data }: DepositChartProps) {
         </div>
         <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Number of Deposits
+            Net Amount
+          </p>
+          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+            ${netAmount.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </p>
+        </div>
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Transactions
           </p>
           <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
             {data.length}
@@ -522,9 +516,15 @@ export default function DepositChart({ data }: DepositChartProps) {
                   />
                 )}
                 <Bar
-                  dataKey="amount"
+                  dataKey="deposit"
                   fill="#22c55e"
-                  name="Deposit Amount"
+                  name="Deposits"
+                  radius={[8, 8, 0, 0]}
+                />
+                <Bar
+                  dataKey="withdrawal"
+                  fill="#dc2626"
+                  name="Withdrawals"
                   radius={[8, 8, 0, 0]}
                 />
               </BarChart>
@@ -569,8 +569,30 @@ export default function DepositChart({ data }: DepositChartProps) {
                   <span className="text-zinc-600 dark:text-zinc-400">
                     Total Deposited:
                   </span>
-                  <span className="font-medium text-zinc-900 dark:text-zinc-50">
+                  <span className="font-medium text-green-600 dark:text-green-400">
                     ${rangeStats.totalDeposited.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-8">
+                  <span className="text-zinc-600 dark:text-zinc-400">
+                    Total Withdrawn:
+                  </span>
+                  <span className="font-medium text-red-600 dark:text-red-400">
+                    ${rangeStats.totalWithdrawn.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-8">
+                  <span className="text-zinc-600 dark:text-zinc-400">
+                    Net Change:
+                  </span>
+                  <span className="font-medium text-zinc-900 dark:text-zinc-50">
+                    ${rangeStats.netChange.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
@@ -601,7 +623,6 @@ export default function DepositChart({ data }: DepositChartProps) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log("🖱️ Zoom button clicked!");
                       handleZoomIn();
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
@@ -613,7 +634,6 @@ export default function DepositChart({ data }: DepositChartProps) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        console.log("🖱️ Reset zoom button clicked!");
                         handleResetZoom();
                       }}
                       onMouseDown={(e) => e.stopPropagation()}

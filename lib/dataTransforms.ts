@@ -4,10 +4,11 @@ export function calculateCumulativeDeposits(
   data: DepositData[]
 ): DepositData[] {
   let cumulative = 0;
-  return data.map((deposit) => {
-    cumulative += deposit.amount;
+  return data.map((item) => {
+    // Net change: deposits - withdrawals
+    cumulative += (item.deposit || item.amount || 0) - (item.withdrawal || 0);
     return {
-      ...deposit,
+      ...item,
       cumulative,
     };
   });
@@ -19,6 +20,8 @@ export function calculateRangeStatistics(
   endTimestamp: number
 ): {
   totalDeposited: number;
+  totalWithdrawn: number;
+  netChange: number;
   daysElapsed: number;
   avgPerMonth: number;
   startDate: string;
@@ -27,16 +30,19 @@ export function calculateRangeStatistics(
   const start = Math.min(startTimestamp, endTimestamp);
   const end = Math.max(startTimestamp, endTimestamp);
 
-  // Filter deposits within the timestamp range
+  // Filter transactions within the timestamp range
   const rangeData = data.filter(
     (d) => d.timestamp >= start && d.timestamp <= end
   );
-  const totalDeposited = rangeData.reduce((sum, d) => sum + d.amount, 0);
+
+  const totalDeposited = rangeData.reduce((sum, d) => sum + (d.deposit || d.amount || 0), 0);
+  const totalWithdrawn = rangeData.reduce((sum, d) => sum + (d.withdrawal || 0), 0);
+  const netChange = totalDeposited - totalWithdrawn;
 
   const daysElapsed = Math.abs((end - start) / (1000 * 60 * 60 * 24));
   const monthsElapsed = daysElapsed / 30.44; // Average days per month
 
-  const avgPerMonth = monthsElapsed > 0 ? totalDeposited / monthsElapsed : 0;
+  const avgPerMonth = monthsElapsed > 0 ? netChange / monthsElapsed : 0;
 
   // Format dates
   const startDate = new Date(start).toLocaleDateString("en-US", {
@@ -52,6 +58,8 @@ export function calculateRangeStatistics(
 
   return {
     totalDeposited,
+    totalWithdrawn,
+    netChange,
     daysElapsed: Math.round(daysElapsed),
     avgPerMonth,
     startDate,
