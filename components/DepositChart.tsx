@@ -123,21 +123,36 @@ export default function DepositChart({ data }: DepositChartProps) {
   const zoomRatio = fullTimeRange / currentTimeRange;
   const dynamicBarSize = Math.min(50, Math.max(4, 6 + 5 * zoomRatio));
 
-  // Custom bar shape with fixed width
-  const CustomBar = (props: any) => {
-    const { fill, x, y, width, height } = props;
+  // Custom bar shape with fixed width and rounded top
+  interface CustomBarProps {
+    fill: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
+  const CustomBar = (props: unknown) => {
+    const { fill, x, y, width, height } = props as CustomBarProps;
     const barWidth = dynamicBarSize;
     const centerX = x + width / 2;
     const adjustedX = centerX - barWidth / 2;
+    const strokeColor = "#18181b";
+    const borderRadius = barWidth * 0.20; // As a % of bar width for proportional rounding
+    const borderWidth = barWidth * 0.03; // As a % of bar width for proportional border
 
     return (
-      <rect
-        x={adjustedX}
-        y={y}
-        width={barWidth}
-        height={height}
-        fill={fill}
-      />
+      <foreignObject x={adjustedX} y={y} width={barWidth} height={height}>
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            backgroundColor: fill,
+            borderTopLeftRadius: `${borderRadius}px`,
+            borderTopRightRadius: `${borderRadius}px`,
+            border: `${borderWidth}px solid ${strokeColor}`,
+          }}
+        />
+      </foreignObject>
     );
   };
 
@@ -546,13 +561,13 @@ export default function DepositChart({ data }: DepositChartProps) {
                   dataKey="deposit"
                   fill="#22c55e"
                   name="Deposits"
-                  shape={<CustomBar />}
+                  shape={CustomBar}
                 />
                 <Bar
                   dataKey="withdrawal"
                   fill="#dc2626"
                   name="Withdrawals"
-                  shape={<CustomBar />}
+                  shape={CustomBar}
                 />
               </BarChart>
             )}
