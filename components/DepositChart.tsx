@@ -99,10 +99,17 @@ export default function DepositChart({ data }: DepositChartProps) {
       )
     : chartData;
 
-  const totalDeposits = data.reduce((sum, d) => sum + (d.deposit || d.amount || 0), 0);
-  const totalWithdrawals = data.reduce((sum, d) => sum + (d.withdrawal || 0), 0);
+  // Filter original data for stats based on zoom (not cumulative data)
+  const displayDataForStats = zoomedRange
+    ? data.filter(
+        (d) => d.timestamp >= zoomedRange.start && d.timestamp <= zoomedRange.end
+      )
+    : data;
+
+  const totalDeposits = displayDataForStats.reduce((sum, d) => sum + (d.deposit || d.amount || 0), 0);
+  const totalWithdrawals = displayDataForStats.reduce((sum, d) => sum + (d.withdrawal || 0), 0);
   const netAmount = totalDeposits - totalWithdrawals;
-  const avgDeposit = totalDeposits / data.length;
+  const avgDeposit = totalDeposits / displayDataForStats.length;
 
   const allMinTimestamp = Math.min(...chartData.map((d) => d.timestamp));
   const allMaxTimestamp = Math.max(...chartData.map((d) => d.timestamp));
@@ -304,7 +311,7 @@ export default function DepositChart({ data }: DepositChartProps) {
             Transactions
           </p>
           <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            {data.length}
+            {displayDataForStats.length}
           </p>
         </div>
       </div>
