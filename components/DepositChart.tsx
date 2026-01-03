@@ -91,11 +91,23 @@ export default function DepositChart({ data }: DepositChartProps) {
     return null;
   }
 
+  // Calculate data bounds first (from original data, not filtered/transformed)
+  const allMinTimestamp = Math.min(...data.map((d) => d.timestamp));
+  const allMaxTimestamp = Math.max(...data.map((d) => d.timestamp));
+
+  // Cap zoomed range to current time and clamp to data bounds
+  const effectiveZoomedRange = zoomedRange
+    ? {
+        start: Math.max(allMinTimestamp, zoomedRange.start),
+        end: Math.min(allMaxTimestamp, Math.min(zoomedRange.end, currentTime))
+      }
+    : null;
+
   // Filter data based on zoom first, then apply cumulative transformation
   // This ensures cumulative view starts from 0 when zoomed
-  const baseData = zoomedRange
+  const baseData = effectiveZoomedRange
     ? data.filter(
-        (d) => d.timestamp >= zoomedRange.start && d.timestamp <= zoomedRange.end
+        (d) => d.timestamp >= effectiveZoomedRange.start && d.timestamp <= effectiveZoomedRange.end
       )
     : data;
 
@@ -107,9 +119,9 @@ export default function DepositChart({ data }: DepositChartProps) {
   const displayData = chartData;
 
   // Filter original data for stats based on zoom (not cumulative data)
-  const displayDataForStats = zoomedRange
+  const displayDataForStats = effectiveZoomedRange
     ? data.filter(
-        (d) => d.timestamp >= zoomedRange.start && d.timestamp <= zoomedRange.end
+        (d) => d.timestamp >= effectiveZoomedRange.start && d.timestamp <= effectiveZoomedRange.end
       )
     : data;
 
@@ -118,19 +130,14 @@ export default function DepositChart({ data }: DepositChartProps) {
   const netAmount = totalDeposits - totalWithdrawals;
   const avgDeposit = totalDeposits / displayDataForStats.length;
 
-  // Calculate time range in months for net amount per month
-  const timeRangeMs = displayDataForStats.length > 0
-    ? Math.max(...displayDataForStats.map(d => d.timestamp)) - Math.min(...displayDataForStats.map(d => d.timestamp))
-    : 0;
+  // Use effective zoomed range if available, otherwise use full range (capped to current time)
+  const minTimestamp = effectiveZoomedRange ? effectiveZoomedRange.start : allMinTimestamp;
+  const maxTimestamp = effectiveZoomedRange ? effectiveZoomedRange.end : Math.min(allMaxTimestamp, currentTime);
+
+  // Calculate time range in months based on x-axis range (not just data points)
+  const timeRangeMs = maxTimestamp - minTimestamp;
   const timeRangeMonths = timeRangeMs / (1000 * 60 * 60 * 24 * 30.44); // Average days per month
   const netAmountPerMonth = timeRangeMonths > 0 ? netAmount / timeRangeMonths : netAmount;
-
-  const allMinTimestamp = Math.min(...chartData.map((d) => d.timestamp));
-  const allMaxTimestamp = Math.max(...chartData.map((d) => d.timestamp));
-
-  // Use zoomed range if available, otherwise use full range
-  const minTimestamp = zoomedRange ? zoomedRange.start : allMinTimestamp;
-  const maxTimestamp = zoomedRange ? zoomedRange.end : allMaxTimestamp;
 
   // Calculate domain with padding
   const range = maxTimestamp - minTimestamp;
@@ -142,8 +149,8 @@ export default function DepositChart({ data }: DepositChartProps) {
   const fullTimeRange = allMaxTimestamp - allMinTimestamp;
   const currentTimeRange = maxTimestamp - minTimestamp;
   const zoomRatio = fullTimeRange / currentTimeRange;
-  const dynamicBarSize = Math.min(50, Math.max(4, 6 + 5 * zoomRatio));
-
+  const dynamicBarSize = 10 + 2 * zoomRatio;
+  
   // Custom bar shape with fixed width and rounded top
   interface CustomBarProps {
     fill: string;
@@ -284,8 +291,25 @@ export default function DepositChart({ data }: DepositChartProps) {
 
   const refAreaProps = getRefAreaProps();
 
+  // Calculate date range for display using x-axis range (capped to current date)
+  const startDate = new Date(minTimestamp).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+  const endDate = new Date(maxTimestamp).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+
   return (
     <div className="w-full space-y-6" suppressHydrationWarning>
+      <div className="text-center">
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Showing data from <span className="font-semibold text-zinc-900 dark:text-zinc-50">{startDate}</span> to <span className="font-semibold text-zinc-900 dark:text-zinc-50">{endDate}</span>
+        </p>
+      </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
