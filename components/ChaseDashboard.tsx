@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import fuzzysort from "fuzzysort";
 import { ChaseTransaction } from "@/lib/types";
 import ChaseTransactions from "./ChaseTransactions";
 import StatsBlock from "./StatsBlock";
-import SearchBar from "./SearchBar";
+import SearchBar, { SearchMode } from "./SearchBar";
 import { calculateChaseStats } from "@/lib/chaseStats";
 
 interface ChaseDashboardProps {
@@ -13,31 +14,40 @@ interface ChaseDashboardProps {
 
 export default function ChaseDashboard({ transactions }: ChaseDashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode>('fuzzy');
   const stats = calculateChaseStats(transactions);
 
-  // Filter transactions based on regex search
+  // Filter transactions based on search mode
   const filteredTransactions = useMemo(() => {
     if (!searchQuery.trim()) {
       return transactions;
     }
 
-    try {
-      // Create case-insensitive regex
-      const regex = new RegExp(searchQuery, "i");
-      return transactions.filter((transaction) => {
-        // Search in description, type, and date
-        return (
-          regex.test(transaction.description) ||
-          regex.test(transaction.type) ||
-          regex.test(transaction.postingDate)
-        );
+    if (searchMode === 'fuzzy') {
+      // Use fuzzysort library for fast, optimized fuzzy search
+      const results = fuzzysort.go(searchQuery, transactions, {
+        keys: ['description', 'type', 'postingDate'],
+        threshold: -10000, // Allow fuzzy matches
       });
-    } catch (error) {
-      // Invalid regex - return all transactions
-      console.error("Invalid regex:", error);
-      return transactions;
+      return results.map(result => result.obj);
+    } else {
+      // Use regex search
+      try {
+        const regex = new RegExp(searchQuery, "i");
+        return transactions.filter((transaction) => {
+          return (
+            regex.test(transaction.description) ||
+            regex.test(transaction.type) ||
+            regex.test(transaction.postingDate)
+          );
+        });
+      } catch (error) {
+        // Invalid regex - return all transactions
+        console.error("Invalid regex:", error);
+        return transactions;
+      }
     }
-  }, [transactions, searchQuery]);
+  }, [transactions, searchQuery, searchMode]);
 
   return (
     <div className="space-y-8">
@@ -71,7 +81,13 @@ export default function ChaseDashboard({ transactions }: ChaseDashboardProps) {
       <SearchBar
         value={searchQuery}
         onChange={setSearchQuery}
-        placeholder="Search transactions (regex supported)..."
+        mode={searchMode}
+        onModeChange={setSearchMode}
+        placeholder={
+          searchMode === 'fuzzy'
+            ? "Search transactions (fuzzy matching)..."
+            : "Search transactions (regex)..."
+        }
       />
       <ChaseTransactions transactions={filteredTransactions} />
     </div>
