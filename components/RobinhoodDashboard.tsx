@@ -21,19 +21,19 @@ import {
   calculateRangeStatistics,
 } from "@/lib/dataTransforms";
 
-interface DepositChartProps {
+interface RobinhoodDashboardProps {
   data: DepositData[];
   portfolioData?: PortfolioValueData[];
   onLoadPortfolio?: () => void;
   isLoadingPortfolio?: boolean;
 }
 
-export default function DepositChart({
+export default function RobinhoodDashboard({
   data,
   portfolioData = [],
   onLoadPortfolio,
   isLoadingPortfolio = false,
-}: DepositChartProps) {
+}: RobinhoodDashboardProps) {
   const [viewMode, setViewMode] = useState<"individual" | "cumulative" | "portfolio">(
     "individual"
   );
@@ -150,7 +150,6 @@ export default function DepositChart({
   const totalDeposits = displayDataForStats.reduce((sum, d) => sum + (d.deposit || d.amount || 0), 0);
   const totalWithdrawals = displayDataForStats.reduce((sum, d) => sum + (d.withdrawal || 0), 0);
   const netAmount = totalDeposits - totalWithdrawals;
-  const avgDeposit = totalDeposits / displayDataForStats.length;
 
   // Use effective zoomed range if available, otherwise use full range (capped to current time)
   const minTimestamp = effectiveZoomedRange ? effectiveZoomedRange.start : allMinTimestamp;

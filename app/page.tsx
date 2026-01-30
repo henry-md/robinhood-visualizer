@@ -2,15 +2,20 @@
 
 import { useState, useEffect } from "react";
 import FileUpload from "@/components/FileUpload";
-import DepositChart from "@/components/DepositChart";
+import RobinhoodDashboard from "@/components/RobinhoodDashboard";
+import ChaseDashboard from "@/components/ChaseDashboard";
 import { parseRobinhoodCSV } from "@/lib/csvParser";
-import { DepositData, PortfolioValueData } from "@/lib/types";
+import { DepositData, PortfolioValueData, ChaseTransaction, FileType } from "@/lib/types";
 import { parseAllTransactions, getAllUniqueTickers } from "@/lib/portfolioCalculations";
 import { fetchStockPrices, calculatePortfolioValues } from "@/lib/portfolioValue";
+import { detectFileType } from "@/lib/fileTypeDetector";
+import { parseChaseCSV } from "@/lib/chaseParser";
 
 export default function Home() {
   const [deposits, setDeposits] = useState<DepositData[]>([]);
   const [portfolioData, setPortfolioData] = useState<PortfolioValueData[]>([]);
+  const [chaseTransactions, setChaseTransactions] = useState<ChaseTransaction[]>([]);
+  const [fileType, setFileType] = useState<FileType>('unknown');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -26,8 +31,19 @@ export default function Home() {
     setCsvFile(file);
 
     try {
-      const parsedDeposits = await parseRobinhoodCSV(file);
-      setDeposits(parsedDeposits);
+      // Detect file type
+      const detectedType = await detectFileType(file);
+      setFileType(detectedType);
+
+      if (detectedType === 'robinhood') {
+        const parsedDeposits = await parseRobinhoodCSV(file);
+        setDeposits(parsedDeposits);
+      } else if (detectedType === 'chase') {
+        const parsedTransactions = await parseChaseCSV(file);
+        setChaseTransactions(parsedTransactions);
+      } else {
+        setError("Unknown file format. Please upload a Robinhood or Chase CSV file.");
+      }
     } catch (err) {
       setError("Failed to parse CSV file. Please check the file format.");
       console.error(err);
@@ -89,10 +105,10 @@ export default function Home() {
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Robinhood Deposit Tracker
+            Financial Tracker
           </h1>
           <p className="mt-2 text-lg text-zinc-600 dark:text-zinc-400">
-            Upload your Robinhood CSV to visualize your deposit history
+            Upload your Robinhood or Chase CSV to visualize your financial data
           </p>
         </div>
 
@@ -111,13 +127,17 @@ export default function Home() {
             </div>
           )}
 
-          {deposits.length > 0 && (
-            <DepositChart
+          {fileType === 'robinhood' && deposits.length > 0 && (
+            <RobinhoodDashboard
               data={deposits}
               portfolioData={portfolioData}
               onLoadPortfolio={handleLoadPortfolio}
               isLoadingPortfolio={loading && portfolioData.length === 0}
             />
+          )}
+
+          {fileType === 'chase' && chaseTransactions.length > 0 && (
+            <ChaseDashboard transactions={chaseTransactions} />
           )}
         </div>
       </main>

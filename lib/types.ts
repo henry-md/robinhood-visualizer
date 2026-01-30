@@ -59,3 +59,17 @@ export interface PortfolioValueData {
   cashValue: number;
   stockValue: number;
 }
+
+// Chase transaction types
+export interface ChaseTransaction {
+  details: 'CREDIT' | 'DEBIT';
+  postingDate: string;
+  description: string;
+  amount: number;
+  type: string;
+  balance: number | null;
+  checkOrSlip: string;
+  timestamp: number;
+}
+
+export type FileType = 'robinhood' | 'chase' | 'unknown';
