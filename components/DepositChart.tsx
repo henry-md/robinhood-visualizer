@@ -15,7 +15,7 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from "recharts";
-import { DepositData } from "@/lib/types";
+import { DepositData, PortfolioValueData } from "@/lib/types";
 import {
   calculateCumulativeDeposits,
   calculateRangeStatistics,
@@ -23,10 +23,18 @@ import {
 
 interface DepositChartProps {
   data: DepositData[];
+  portfolioData?: PortfolioValueData[];
+  onLoadPortfolio?: () => void;
+  isLoadingPortfolio?: boolean;
 }
 
-export default function DepositChart({ data }: DepositChartProps) {
-  const [viewMode, setViewMode] = useState<"individual" | "cumulative">(
+export default function DepositChart({
+  data,
+  portfolioData = [],
+  onLoadPortfolio,
+  isLoadingPortfolio = false,
+}: DepositChartProps) {
+  const [viewMode, setViewMode] = useState<"individual" | "cumulative" | "portfolio">(
     "individual"
   );
   const [dragStart, setDragStart] = useState<number | null>(null);
@@ -111,12 +119,26 @@ export default function DepositChart({ data }: DepositChartProps) {
       )
     : data;
 
+  // Filter portfolio data based on zoom if needed
+  const filteredPortfolioData = effectiveZoomedRange && portfolioData.length > 0
+    ? portfolioData.filter(
+        (d) => d.timestamp >= effectiveZoomedRange.start && d.timestamp <= effectiveZoomedRange.end
+      )
+    : portfolioData;
+
   // Apply view mode transformation to the filtered data
   const chartData = viewMode === "cumulative"
     ? calculateCumulativeDeposits(baseData)
+    : viewMode === "portfolio"
+    ? filteredPortfolioData
     : baseData;
 
   const displayData = chartData;
+
+  // Don't render chart if portfolio view is selected but no data is available
+  if (viewMode === "portfolio" && portfolioData.length === 0) {
+    // Will show the info message instead
+  }
 
   // Filter original data for stats based on zoom (not cumulative data)
   const displayDataForStats = effectiveZoomedRange
@@ -359,6 +381,8 @@ export default function DepositChart({ data }: DepositChartProps) {
           <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
             {viewMode === "cumulative"
               ? "Cumulative Deposits"
+              : viewMode === "portfolio"
+              ? "Portfolio Value"
               : "Deposit History"}
             {zoomedRange && (
               <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">
@@ -376,57 +400,80 @@ export default function DepositChart({ data }: DepositChartProps) {
               </button>
             )}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                Individual
-              </span>
               <button
                 onClick={() => {
-                  setViewMode(
-                    viewMode === "individual" ? "cumulative" : "individual"
-                  );
+                  setViewMode("individual");
                   clearSelection();
                 }}
-                className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                style={{
-                  backgroundColor:
-                    viewMode === "cumulative" ? "#22c55e" : "#d4d4d8",
-                }}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "individual"
+                    ? "bg-green-500 text-white"
+                    : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
+                }`}
               >
-                <span
-                  className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-                  style={{
-                    transform:
-                      viewMode === "cumulative"
-                        ? "translateX(24px)"
-                        : "translateX(4px)",
-                  }}
-                />
+                Individual
               </button>
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">
+              <button
+                onClick={() => {
+                  setViewMode("cumulative");
+                  clearSelection();
+                }}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "cumulative"
+                    ? "bg-green-500 text-white"
+                    : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
+                }`}
+              >
                 Cumulative
-              </span>
+              </button>
+              <button
+                onClick={() => {
+                  if (portfolioData.length === 0 && onLoadPortfolio) {
+                    onLoadPortfolio();
+                  }
+                  setViewMode("portfolio");
+                  clearSelection();
+                }}
+                disabled={isLoadingPortfolio}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "portfolio"
+                    ? "bg-green-500 text-white"
+                    : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
+                } ${isLoadingPortfolio ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {isLoadingPortfolio ? "Loading..." : "Portfolio"}
+              </button>
             </div>
           </div>
         </div>
 
-        <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-          Drag across the chart to select a time range and see detailed statistics
-        </p>
+        {viewMode === "portfolio" && portfolioData.length === 0 && !isLoadingPortfolio ? (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              Click the Portfolio button above to load portfolio value data. This will fetch historical stock prices and calculate your portfolio value over time.
+            </p>
+          </div>
+        ) : (
+          <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+            Drag across the chart to select a time range and see detailed statistics
+          </p>
+        )}
 
-        <div
-          ref={chartContainerRef}
-          className="relative no-select"
-          onMouseDown={handleChartMouseDown}
-          onMouseMove={handleChartMouseMove}
-          onMouseUp={handleChartMouseUp}
-          onMouseLeave={handleChartMouseLeave}
-          style={{
-            cursor: "crosshair",
-          }}
-          suppressHydrationWarning
-        >
-          <ResponsiveContainer width="100%" height={400}>
-            {viewMode === "cumulative" ? (
+        {!(viewMode === "portfolio" && portfolioData.length === 0) && (
+          <div
+            ref={chartContainerRef}
+            className="relative no-select"
+            onMouseDown={handleChartMouseDown}
+            onMouseMove={handleChartMouseMove}
+            onMouseUp={handleChartMouseUp}
+            onMouseLeave={handleChartMouseLeave}
+            style={{
+              cursor: "crosshair",
+            }}
+            suppressHydrationWarning
+          >
+            <ResponsiveContainer width="100%" height={400}>
+            {viewMode === "cumulative" || viewMode === "portfolio" ? (
               <LineChart
                 data={displayData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
@@ -526,13 +573,35 @@ export default function DepositChart({ data }: DepositChartProps) {
                 )}
                 <Line
                   type="monotone"
-                  dataKey="cumulative"
+                  dataKey={viewMode === "portfolio" ? "portfolioValue" : "cumulative"}
                   stroke="#22c55e"
                   strokeWidth={2}
-                  name="Cumulative Deposits"
+                  name={viewMode === "portfolio" ? "Portfolio Value" : "Cumulative Deposits"}
                   dot={{ fill: "#22c55e", r: 3 }}
                   activeDot={{ r: 5 }}
                 />
+                {viewMode === "portfolio" && (
+                  <>
+                    <Line
+                      type="monotone"
+                      dataKey="stockValue"
+                      stroke="#3b82f6"
+                      strokeWidth={1}
+                      name="Stock Value"
+                      dot={false}
+                      strokeDasharray="5 5"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="cashValue"
+                      stroke="#eab308"
+                      strokeWidth={1}
+                      name="Cash Value"
+                      dot={false}
+                      strokeDasharray="5 5"
+                    />
+                  </>
+                )}
               </LineChart>
             ) : (
               <BarChart
@@ -764,6 +833,7 @@ export default function DepositChart({ data }: DepositChartProps) {
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

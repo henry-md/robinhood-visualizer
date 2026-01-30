@@ -27,3 +27,35 @@ export interface RangeSelection {
   startIndex: number;
   endIndex: number;
 }
+
+export interface StockTransaction {
+  date: string;
+  timestamp: number;
+  ticker: string;
+  type: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  amount: number;
+  transCode?: string; // Original transaction code (SPL, REC, Buy, Sell, etc.)
+}
+
+export interface CashTransaction {
+  date: string;
+  timestamp: number;
+  type: 'deposit' | 'withdrawal' | 'dividend' | 'interest' | 'fee';
+  amount: number;
+  ticker?: string;
+}
+
+export interface Portfolio {
+  cash: number;
+  holdings: Map<string, number>;
+}
+
+export interface PortfolioValueData {
+  date: string;
+  timestamp: number;
+  portfolioValue: number;
+  cashValue: number;
+  stockValue: number;
+}

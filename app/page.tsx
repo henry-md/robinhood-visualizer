@@ -4,13 +4,17 @@ import { useState, useEffect } from "react";
 import FileUpload from "@/components/FileUpload";
 import DepositChart from "@/components/DepositChart";
 import { parseRobinhoodCSV } from "@/lib/csvParser";
-import { DepositData } from "@/lib/types";
+import { DepositData, PortfolioValueData } from "@/lib/types";
+import { parseAllTransactions, getAllUniqueTickers } from "@/lib/portfolioCalculations";
+import { fetchStockPrices, calculatePortfolioValues } from "@/lib/portfolioValue";
 
 export default function Home() {
   const [deposits, setDeposits] = useState<DepositData[]>([]);
+  const [portfolioData, setPortfolioData] = useState<PortfolioValueData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -19,12 +23,57 @@ export default function Home() {
   const handleFileSelect = async (file: File) => {
     setLoading(true);
     setError(null);
+    setCsvFile(file);
 
     try {
       const parsedDeposits = await parseRobinhoodCSV(file);
       setDeposits(parsedDeposits);
     } catch (err) {
       setError("Failed to parse CSV file. Please check the file format.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoadPortfolio = async () => {
+    if (!csvFile) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Parse all transactions
+      const { stockTransactions, cashTransactions } = await parseAllTransactions(csvFile);
+
+      if (stockTransactions.length === 0) {
+        setError("No stock transactions found in CSV.");
+        return;
+      }
+
+      // Get all unique tickers
+      const tickers = getAllUniqueTickers(stockTransactions);
+
+      // Get date range
+      const allTransactions = [...stockTransactions, ...cashTransactions];
+      const startDate = new Date(Math.min(...allTransactions.map(t => t.timestamp)));
+      const endDate = new Date();
+
+      // Fetch stock prices
+      const priceData = await fetchStockPrices(tickers, startDate, endDate);
+
+      // Calculate portfolio values
+      const portfolioValues = calculatePortfolioValues(
+        stockTransactions,
+        cashTransactions,
+        priceData,
+        startDate,
+        endDate
+      );
+
+      setPortfolioData(portfolioValues);
+    } catch (err) {
+      setError("Failed to calculate portfolio values. " + (err as Error).message);
       console.error(err);
     } finally {
       setLoading(false);
@@ -62,7 +111,14 @@ export default function Home() {
             </div>
           )}
 
-          {deposits.length > 0 && <DepositChart data={deposits} />}
+          {deposits.length > 0 && (
+            <DepositChart
+              data={deposits}
+              portfolioData={portfolioData}
+              onLoadPortfolio={handleLoadPortfolio}
+              isLoadingPortfolio={loading && portfolioData.length === 0}
+            />
+          )}
         </div>
       </main>
     </div>
