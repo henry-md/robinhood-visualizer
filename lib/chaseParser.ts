@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { ChaseTransaction } from './types';
+import { ChaseTransaction, ChaseFile } from './types';
 
 interface ChaseCSVRow {
   'Details': string;
@@ -11,7 +11,7 @@ interface ChaseCSVRow {
   'Check or Slip #': string;
 }
 
-export function parseChaseCSV(file: File): Promise<ChaseTransaction[]> {
+export function parseChaseCSV(file: File): Promise<ChaseFile> {
   return new Promise((resolve, reject) => {
     Papa.parse<ChaseCSVRow>(file, {
       header: true,
@@ -66,8 +66,24 @@ export function parseChaseCSV(file: File): Promise<ChaseTransaction[]> {
           // Sort by timestamp (newest first)
           transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-          console.log(`✅ Parsed ${transactions.length} Chase transactions`);
-          resolve(transactions);
+          // Calculate date range
+          let startDate = '';
+          let endDate = '';
+          if (transactions.length > 0) {
+            endDate = transactions[0].postingDate; // Newest (sorted first)
+            startDate = transactions[transactions.length - 1].postingDate; // Oldest
+          }
+
+          console.log(`✅ Parsed ${transactions.length} Chase transactions from ${file.name}`);
+
+          resolve({
+            filename: file.name,
+            transactions,
+            dateRange: {
+              start: startDate,
+              end: endDate,
+            },
+          });
         } catch (error) {
           reject(error);
         }

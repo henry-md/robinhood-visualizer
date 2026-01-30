@@ -5,7 +5,7 @@ import FileUpload from "@/components/FileUpload";
 import RobinhoodDashboard from "@/components/RobinhoodDashboard";
 import ChaseDashboard from "@/components/ChaseDashboard";
 import { parseRobinhoodCSV } from "@/lib/csvParser";
-import { DepositData, PortfolioValueData, ChaseTransaction, FileType } from "@/lib/types";
+import { DepositData, PortfolioValueData, ChaseTransaction, ChaseFile, FileType } from "@/lib/types";
 import { parseAllTransactions, getAllUniqueTickers } from "@/lib/portfolioCalculations";
 import { fetchStockPrices, calculatePortfolioValues } from "@/lib/portfolioValue";
 import { detectFileType } from "@/lib/fileTypeDetector";
@@ -14,7 +14,7 @@ import { parseChaseCSV } from "@/lib/chaseParser";
 export default function Home() {
   const [deposits, setDeposits] = useState<DepositData[]>([]);
   const [portfolioData, setPortfolioData] = useState<PortfolioValueData[]>([]);
-  const [chaseTransactions, setChaseTransactions] = useState<ChaseTransaction[]>([]);
+  const [chaseFiles, setChaseFiles] = useState<ChaseFile[]>([]);
   const [fileType, setFileType] = useState<FileType>('unknown');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,14 +33,16 @@ export default function Home() {
     try {
       // Detect file type
       const detectedType = await detectFileType(file);
-      setFileType(detectedType);
 
       if (detectedType === 'robinhood') {
+        setFileType('robinhood');
         const parsedDeposits = await parseRobinhoodCSV(file);
         setDeposits(parsedDeposits);
       } else if (detectedType === 'chase') {
-        const parsedTransactions = await parseChaseCSV(file);
-        setChaseTransactions(parsedTransactions);
+        setFileType('chase');
+        const parsedFile = await parseChaseCSV(file);
+        // Append to existing files
+        setChaseFiles(prev => [...prev, parsedFile]);
       } else {
         setError("Unknown file format. Please upload a Robinhood or Chase CSV file.");
       }
@@ -50,6 +52,22 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRemoveChaseFile = (filename: string) => {
+    setChaseFiles(prev => {
+      const updated = prev.filter(f => f.filename !== filename);
+      // If this was the last file, reset file type
+      if (updated.length === 0) {
+        setFileType('unknown');
+      }
+      return updated;
+    });
+  };
+
+  const handleClearAllChaseFiles = () => {
+    setChaseFiles([]);
+    setFileType('unknown');
   };
 
   const handleLoadPortfolio = async () => {
@@ -136,8 +154,13 @@ export default function Home() {
             />
           )}
 
-          {fileType === 'chase' && chaseTransactions.length > 0 && (
-            <ChaseDashboard transactions={chaseTransactions} />
+          {fileType === 'chase' && chaseFiles.length > 0 && (
+            <ChaseDashboard
+              files={chaseFiles}
+              onRemoveFile={handleRemoveChaseFile}
+              onClearAll={handleClearAllChaseFiles}
+              onAddMore={() => document.getElementById('csv-upload')?.click()}
+            />
           )}
         </div>
       </main>

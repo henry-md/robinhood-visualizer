@@ -13,6 +13,10 @@ export default function FileUpload({ onFileSelect }: FileUploadProps) {
     const file = e.target.files?.[0];
     if (file && file.type === "text/csv") {
       onFileSelect(file);
+      // Reset the input so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } else {
       alert("Please select a valid CSV file");
     }

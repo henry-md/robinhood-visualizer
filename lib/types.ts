@@ -72,4 +72,13 @@ export interface ChaseTransaction {
   timestamp: number;
 }
 
+export interface ChaseFile {
+  filename: string;
+  transactions: ChaseTransaction[];
+  dateRange: {
+    start: string;
+    end: string;
+  };
+}
+
 export type FileType = 'robinhood' | 'chase' | 'unknown';
