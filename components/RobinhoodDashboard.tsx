@@ -20,6 +20,7 @@ import {
   calculateCumulativeDeposits,
   calculateRangeStatistics,
 } from "@/lib/dataTransforms";
+import StatsBlock, { StatItem } from "./StatsBlock";
 
 interface RobinhoodDashboardProps {
   data: DepositData[];
@@ -331,49 +332,37 @@ export default function RobinhoodDashboard({
           Showing data from <span className="font-semibold text-zinc-900 dark:text-zinc-50">{startDate}</span> to <span className="font-semibold text-zinc-900 dark:text-zinc-50">{endDate}</span>
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Total Deposits
-          </p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-            ${totalDeposits.toLocaleString("en-US", {
+      <StatsBlock
+        stats={[
+          {
+            label: "Total Deposits",
+            value: `$${totalDeposits.toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })}
-          </p>
-        </div>
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Total Withdrawals
-          </p>
-          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-            ${totalWithdrawals.toLocaleString("en-US", {
+            })}`,
+            color: "green",
+          },
+          {
+            label: "Total Withdrawals",
+            value: `$${totalWithdrawals.toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })}
-          </p>
-        </div>
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Net Amount per mo
-          </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            ${netAmountPerMonth.toLocaleString("en-US", {
+            })}`,
+            color: "red",
+          },
+          {
+            label: "Net Amount per mo",
+            value: `$${netAmountPerMonth.toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })}
-          </p>
-        </div>
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Transactions
-          </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            {displayDataForStats.length}
-          </p>
-        </div>
-      </div>
+            })}`,
+          },
+          {
+            label: "Transactions",
+            value: displayDataForStats.length.toString(),
+          },
+        ]}
+      />
 
       <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mb-4 flex items-center justify-between">
