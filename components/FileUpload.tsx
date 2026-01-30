@@ -6,6 +6,7 @@ import { FileType } from "@/lib/types";
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -25,11 +26,48 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
   const [alertDescription, setAlertDescription] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmDescription, setConfirmDescription] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const showAlert = (title: string, description: string) => {
     setAlertTitle(title);
     setAlertDescription(description);
     setAlertOpen(true);
+  };
+
+  const showConfirm = (title: string, description: string, files: File[]) => {
+    setConfirmTitle(title);
+    setConfirmDescription(description);
+    setPendingFiles(files);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmContinue = async () => {
+    setConfirmOpen(false);
+    // Clear existing files
+    if (onClearFiles) {
+      onClearFiles();
+    }
+    // Process the pending files
+    for (const file of pendingFiles) {
+      await onFileSelect(file);
+    }
+    setPendingFiles([]);
+    // Reset the input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    setConfirmOpen(false);
+    setPendingFiles([]);
+    // Reset the input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -94,14 +132,20 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
     // Determine the new file type being uploaded
     const newFileType = fileTypes[0]; // All files in batch are the same type at this point
 
-    // If uploading Robinhood, always clear existing files
-    if (newFileType === 'robinhood' && currentFileType !== 'unknown' && onClearFiles) {
-      onClearFiles();
-    }
+    // Check if we need to confirm before overriding existing files
+    const willOverrideRobinhood = newFileType === 'robinhood' && currentFileType !== 'unknown';
+    const willOverrideChase = newFileType === 'chase' && currentFileType === 'robinhood';
 
-    // If uploading Chase and there's a Robinhood file, clear it
-    if (newFileType === 'chase' && currentFileType === 'robinhood' && onClearFiles) {
-      onClearFiles();
+    if ((willOverrideRobinhood || willOverrideChase) && onClearFiles) {
+      // Show confirmation dialog
+      const currentTypeLabel = currentFileType === 'robinhood' ? 'Robinhood' : 'Chase';
+      const newTypeLabel = newFileType === 'robinhood' ? 'Robinhood' : 'Chase';
+      showConfirm(
+        "Replace Existing Files?",
+        `You currently have ${currentTypeLabel} ${currentFileType === 'chase' ? 'files' : 'file'} loaded. Uploading ${newTypeLabel} ${newFileType === 'chase' ? 'files' : 'file'} will clear your current data. Do you want to continue?`,
+        validFiles
+      );
+      return;
     }
 
     // Check for duplicate filenames after potential clear
@@ -179,6 +223,21 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setAlertOpen(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleConfirmCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmContinue} className="bg-red-600 text-white hover:bg-red-700 hover:text-white">
+              Continue
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
