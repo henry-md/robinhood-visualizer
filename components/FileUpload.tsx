@@ -1,8 +1,17 @@
 "use client";
 
-import { ChangeEvent, useRef } from "react";
+import { ChangeEvent, useRef, useState } from "react";
 import { detectFileType } from "@/lib/fileTypeDetector";
 import { FileType } from "@/lib/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void | Promise<void>;
@@ -13,6 +22,15 @@ interface FileUploadProps {
 
 export default function FileUpload({ onFileSelect, existingFilenames = [], currentFileType = 'unknown', onClearFiles }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertDescription, setAlertDescription] = useState("");
+
+  const showAlert = (title: string, description: string) => {
+    setAlertTitle(title);
+    setAlertDescription(description);
+    setAlertOpen(true);
+  };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -30,7 +48,7 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
 
       // Check file type
       if (file.type !== "text/csv") {
-        alert(`"${file.name}" is not a valid CSV file. Please upload only CSV files.`);
+        showAlert("Invalid File Type", `"${file.name}" is not a valid CSV file. Please upload only CSV files.`);
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -41,7 +59,7 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
       const detectedType = await detectFileType(file);
 
       if (detectedType === 'unknown') {
-        alert(`"${file.name}" is not a recognized Robinhood or Chase CSV file.`);
+        showAlert("Unrecognized File Format", `"${file.name}" is not a recognized Robinhood or Chase CSV file.`);
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -57,7 +75,7 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
     const hasChaseInBatch = fileTypes.some(type => type === 'chase');
 
     if (hasRobinhoodInBatch && hasChaseInBatch) {
-      alert('Cannot mix Robinhood and Chase files in the same upload. Please upload only one type at a time.');
+      showAlert("Cannot Mix File Types", "Cannot mix Robinhood and Chase files in the same upload. Please upload only one type at a time.");
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -66,7 +84,7 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
 
     // Check if trying to upload multiple Robinhood files in this batch
     if (fileTypes.filter(type => type === 'robinhood').length > 1) {
-      alert('Cannot upload multiple Robinhood files. Please upload one Robinhood file at a time.');
+      showAlert("Multiple Robinhood Files", "Cannot upload multiple Robinhood files. Please upload one Robinhood file at a time.");
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -91,7 +109,7 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
     if (newFileType === 'chase' && currentFileType === 'chase') {
       for (const file of validFiles) {
         if (existingFilenames.includes(file.name)) {
-          alert(`"${file.name}" has already been uploaded. Please remove it first or rename your file.`);
+          showAlert("Duplicate File", `"${file.name}" has already been uploaded. Please remove it first or rename your file.`);
           if (fileInputRef.current) {
             fileInputRef.current.value = '';
           }
@@ -112,44 +130,58 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
   };
 
   return (
-    <div className="w-full">
-      <label
-        htmlFor="csv-upload"
-        className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 transition-colors hover:border-zinc-400 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
-      >
-        <div className="flex flex-col items-center justify-center pb-6 pt-5">
-          <svg
-            className="mb-3 h-10 w-10 text-zinc-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-            />
-          </svg>
-          <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="font-semibold">Click to upload</span> or drag and
-            drop
-          </p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            CSV files (multiple files supported)
-          </p>
-        </div>
-        <input
-          id="csv-upload"
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          accept=".csv"
-          multiple
-          onChange={handleFileChange}
-        />
-      </label>
-    </div>
+    <>
+      <div className="w-full">
+        <label
+          htmlFor="csv-upload"
+          className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 transition-colors hover:border-zinc-400 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+        >
+          <div className="flex flex-col items-center justify-center pb-6 pt-5">
+            <svg
+              className="mb-3 h-10 w-10 text-zinc-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
+            <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <span className="font-semibold">Click to upload</span> or drag and
+              drop
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              CSV files (multiple files supported)
+            </p>
+          </div>
+          <input
+            id="csv-upload"
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".csv"
+            multiple
+            onChange={handleFileChange}
+          />
+        </label>
+      </div>
+
+      <AlertDialog open={alertOpen} onOpenChange={setAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{alertTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{alertDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setAlertOpen(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
