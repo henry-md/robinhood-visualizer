@@ -62,14 +62,18 @@ export interface PortfolioValueData {
 
 // Chase transaction types
 export interface ChaseTransaction {
-  details: 'CREDIT' | 'DEBIT';
+  details?: 'CREDIT' | 'DEBIT'; // Only for checking accounts
   postingDate: string;
+  transactionDate?: string; // Only for credit cards
   description: string;
   amount: number;
   type: string;
-  balance: number | null;
-  checkOrSlip: string;
+  balance: number | null; // Only for checking accounts
+  checkOrSlip?: string; // Only for checking accounts
+  category?: string; // Only for credit cards
+  memo?: string; // Only for credit cards
   timestamp: number;
+  accountType: 'checking' | 'credit'; // Track which type of account
 }
 
 export interface ChaseFile {
@@ -79,6 +83,7 @@ export interface ChaseFile {
     start: string;
     end: string;
   };
+  accountType: 'checking' | 'credit';
 }
 
 export type FileType = 'robinhood' | 'chase' | 'unknown';

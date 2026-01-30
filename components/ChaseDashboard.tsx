@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import fuzzysort from "fuzzysort";
-import { ChaseFile, ChaseTransaction } from "@/lib/types";
+import { ChaseFile } from "@/lib/types";
 import ChaseTransactions from "./ChaseTransactions";
 import ChaseFileList from "./ChaseFileList";
 import StatsBlock from "./StatsBlock";
@@ -21,12 +21,8 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
   const [searchMode, setSearchMode] = useState<SearchMode>('fuzzy');
   const [activeFileTab, setActiveFileTab] = useState(0);
 
-  // Reset active tab if it's out of bounds
-  useEffect(() => {
-    if (activeFileTab >= files.length && files.length > 0) {
-      setActiveFileTab(files.length - 1);
-    }
-  }, [files.length, activeFileTab]);
+  // Clamp active tab to valid bounds (avoids useEffect for state updates)
+  const safeActiveTab = Math.min(activeFileTab, Math.max(0, files.length - 1));
 
   // Combine all transactions for stats
   const allTransactions = useMemo(() => {
@@ -37,8 +33,8 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
 
   // Get transactions for active file tab
   const activeTransactions = useMemo(() => {
-    return files[activeFileTab]?.transactions || [];
-  }, [files, activeFileTab]);
+    return files[safeActiveTab]?.transactions || [];
+  }, [files, safeActiveTab]);
 
   // Filter transactions based on search mode
   const filteredTransactions = useMemo(() => {
@@ -49,7 +45,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
     if (searchMode === 'fuzzy') {
       // Use fuzzysort library for fast, optimized fuzzy search
       const results = fuzzysort.go(searchQuery, activeTransactions, {
-        keys: ['description', 'type', 'postingDate'],
+        keys: ['description', 'type', 'postingDate', 'category'],
         threshold: -10000, // Allow fuzzy matches
       });
       return results.map(result => result.obj);
@@ -61,7 +57,8 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
           return (
             regex.test(transaction.description) ||
             regex.test(transaction.type) ||
-            regex.test(transaction.postingDate)
+            regex.test(transaction.postingDate) ||
+            (transaction.category && regex.test(transaction.category))
           );
         });
       } catch (error) {
@@ -130,13 +127,28 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
                 <button
                   key={file.filename}
                   onClick={() => setActiveFileTab(index)}
-                  className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-                    activeFileTab === index
+                  className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${safeActiveTab === index
                       ? 'border-zinc-900 text-zinc-900 dark:border-zinc-50 dark:text-zinc-50'
                       : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-300'
-                  }`}
+                    }`}
                 >
-                  {file.filename}
+                  <span className="flex items-center gap-2">
+                    <span className="group/badge relative inline-flex items-center">
+                      <span
+                        className={`inline-flex h-5 w-5 items-center justify-center rounded text-xs font-bold ${file.accountType === 'credit'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                            : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                          }`}
+                      >
+                        {file.accountType === 'credit' ? 'C' : 'D'}
+                      </span>
+                      {/* Tooltip */}
+                      <span className="pointer-events-none absolute -top-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-zinc-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover/badge:opacity-100 dark:bg-zinc-50 dark:text-zinc-900">
+                        {file.accountType === 'credit' ? 'Credit Card' : 'Checking Account'}
+                      </span>
+                    </span>
+                    {file.filename}
+                  </span>
                 </button>
               ))}
             </nav>

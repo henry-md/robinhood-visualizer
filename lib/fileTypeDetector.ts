@@ -19,12 +19,22 @@ export async function detectFileType(file: File): Promise<FileType> {
         return;
       }
 
-      // Check for Chase headers
+      // Check for Chase checking account headers
       if (firstLine.includes('details') &&
           firstLine.includes('posting date') &&
           firstLine.includes('description') &&
           firstLine.includes('amount') &&
           firstLine.includes('type')) {
+        resolve('chase');
+        return;
+      }
+
+      // Check for Chase credit card headers
+      if (firstLine.includes('transaction date') &&
+          firstLine.includes('post date') &&
+          firstLine.includes('description') &&
+          firstLine.includes('category') &&
+          firstLine.includes('amount')) {
         resolve('chase');
         return;
       }

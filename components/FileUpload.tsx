@@ -4,21 +4,38 @@ import { ChangeEvent, useRef } from "react";
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
+  existingFilenames?: string[];
 }
 
-export default function FileUpload({ onFileSelect }: FileUploadProps) {
+export default function FileUpload({ onFileSelect, existingFilenames = [] }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === "text/csv") {
-      onFileSelect(file);
-      // Reset the input so the same file can be selected again
+
+    if (!file) {
+      return;
+    }
+
+    if (file.type !== "text/csv") {
+      alert("Please select a valid CSV file");
+      return;
+    }
+
+    // Check for duplicate filename
+    if (existingFilenames.includes(file.name)) {
+      alert(`A file named "${file.name}" has already been uploaded. Please remove it first or rename your file.`);
+      // Reset the input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } else {
-      alert("Please select a valid CSV file");
+      return;
+    }
+
+    onFileSelect(file);
+    // Reset the input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 

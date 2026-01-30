@@ -41,6 +41,9 @@ export default function ChaseTransactions({ transactions }: ChaseTransactionsPro
                   Description
                 </th>
                 <th className="pb-3 pr-4 font-medium text-zinc-900 dark:text-zinc-50">
+                  Category
+                </th>
+                <th className="pb-3 pr-4 font-medium text-zinc-900 dark:text-zinc-50">
                   Type
                 </th>
                 <th className="pb-3 pr-4 text-right font-medium text-zinc-900 dark:text-zinc-50">
@@ -64,6 +67,9 @@ export default function ChaseTransactions({ transactions }: ChaseTransactionsPro
                     <div className="max-w-md truncate">
                       {transaction.description}
                     </div>
+                  </td>
+                  <td className="py-3 pr-4 text-zinc-700 dark:text-zinc-300">
+                    {transaction.category || '-'}
                   </td>
                   <td className="py-3 pr-4">
                     <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">

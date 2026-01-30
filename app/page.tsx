@@ -131,7 +131,10 @@ export default function Home() {
         </div>
 
         <div className="space-y-8">
-          <FileUpload onFileSelect={handleFileSelect} />
+          <FileUpload
+            onFileSelect={handleFileSelect}
+            existingFilenames={chaseFiles.map(f => f.filename)}
+          />
 
           {loading && (
             <div className="text-center text-zinc-600 dark:text-zinc-400">
