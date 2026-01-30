@@ -70,6 +70,14 @@ export default function Home() {
     setFileType('unknown');
   };
 
+  const handleClearAllFiles = () => {
+    setChaseFiles([]);
+    setDeposits([]);
+    setPortfolioData([]);
+    setCsvFile(null);
+    setFileType('unknown');
+  };
+
   const handleLoadPortfolio = async () => {
     if (!csvFile) return;
 
@@ -134,6 +142,8 @@ export default function Home() {
           <FileUpload
             onFileSelect={handleFileSelect}
             existingFilenames={chaseFiles.map(f => f.filename)}
+            currentFileType={fileType}
+            onClearFiles={handleClearAllFiles}
           />
 
           {loading && (

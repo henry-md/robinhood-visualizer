@@ -1,39 +1,111 @@
 "use client";
 
 import { ChangeEvent, useRef } from "react";
+import { detectFileType } from "@/lib/fileTypeDetector";
+import { FileType } from "@/lib/types";
 
 interface FileUploadProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect: (file: File) => void | Promise<void>;
   existingFilenames?: string[];
+  currentFileType?: FileType;
+  onClearFiles?: () => void;
 }
 
-export default function FileUpload({ onFileSelect, existingFilenames = [] }: FileUploadProps) {
+export default function FileUpload({ onFileSelect, existingFilenames = [], currentFileType = 'unknown', onClearFiles }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
 
-    if (!file) {
+    if (!files || files.length === 0) {
       return;
     }
 
-    if (file.type !== "text/csv") {
-      alert("Please select a valid CSV file");
-      return;
+    // First pass: validate all files
+    const validFiles: File[] = [];
+    const fileTypes: FileType[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      // Check file type
+      if (file.type !== "text/csv") {
+        alert(`"${file.name}" is not a valid CSV file. Please upload only CSV files.`);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
+      // Detect file type
+      const detectedType = await detectFileType(file);
+
+      if (detectedType === 'unknown') {
+        alert(`"${file.name}" is not a recognized Robinhood or Chase CSV file.`);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
+      validFiles.push(file);
+      fileTypes.push(detectedType);
     }
 
-    // Check for duplicate filename
-    if (existingFilenames.includes(file.name)) {
-      alert(`A file named "${file.name}" has already been uploaded. Please remove it first or rename your file.`);
-      // Reset the input
+    // Check if mixing file types within this batch
+    const hasRobinhoodInBatch = fileTypes.some(type => type === 'robinhood');
+    const hasChaseInBatch = fileTypes.some(type => type === 'chase');
+
+    if (hasRobinhoodInBatch && hasChaseInBatch) {
+      alert('Cannot mix Robinhood and Chase files in the same upload. Please upload only one type at a time.');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
       return;
     }
 
-    onFileSelect(file);
-    // Reset the input so the same file can be selected again
+    // Check if trying to upload multiple Robinhood files in this batch
+    if (fileTypes.filter(type => type === 'robinhood').length > 1) {
+      alert('Cannot upload multiple Robinhood files. Please upload one Robinhood file at a time.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Determine the new file type being uploaded
+    const newFileType = fileTypes[0]; // All files in batch are the same type at this point
+
+    // If uploading Robinhood, always clear existing files
+    if (newFileType === 'robinhood' && currentFileType !== 'unknown' && onClearFiles) {
+      onClearFiles();
+    }
+
+    // If uploading Chase and there's a Robinhood file, clear it
+    if (newFileType === 'chase' && currentFileType === 'robinhood' && onClearFiles) {
+      onClearFiles();
+    }
+
+    // Check for duplicate filenames after potential clear
+    // (only relevant for Chase files being added to existing Chase files)
+    if (newFileType === 'chase' && currentFileType === 'chase') {
+      for (const file of validFiles) {
+        if (existingFilenames.includes(file.name)) {
+          alert(`"${file.name}" has already been uploaded. Please remove it first or rename your file.`);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          return;
+        }
+      }
+    }
+
+    // All validations passed - process files
+    for (const file of validFiles) {
+      await onFileSelect(file);
+    }
+
+    // Reset the input so the same files can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -65,7 +137,7 @@ export default function FileUpload({ onFileSelect, existingFilenames = [] }: Fil
             drop
           </p>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Robinhood CSV file
+            CSV files (multiple files supported)
           </p>
         </div>
         <input
@@ -74,6 +146,7 @@ export default function FileUpload({ onFileSelect, existingFilenames = [] }: Fil
           type="file"
           className="hidden"
           accept=".csv"
+          multiple
           onChange={handleFileChange}
         />
       </label>
