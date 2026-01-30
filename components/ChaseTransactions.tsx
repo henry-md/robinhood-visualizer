@@ -7,6 +7,19 @@ interface ChaseTransactionsProps {
 }
 
 export default function ChaseTransactions({ transactions }: ChaseTransactionsProps) {
+  if (transactions.length === 0) {
+    return (
+      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 className="mb-4 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+          Chase Transactions
+        </h2>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          No transactions match your search.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
@@ -14,7 +27,7 @@ export default function ChaseTransactions({ transactions }: ChaseTransactionsPro
           Chase Transactions
         </h2>
         <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-          Showing {transactions.length} transactions
+          Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
         </p>
 
         <div className="overflow-x-auto">
