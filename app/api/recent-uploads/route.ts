@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const uploadName = name || `${fileType === 'robinhood' ? 'Robinhood' : 'Chase'} Upload - ${new Date().toLocaleString()}`;
+    const uploadName = name || (fileType === 'robinhood'
+      ? 'Robinhood'
+      : `Chase (${files.length} file${files.length > 1 ? 's' : ''})`);
 
     const upload = await prisma.recentUpload.create({
       data: {

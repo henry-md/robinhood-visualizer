@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Clock, X } from "lucide-react";
+import { Clock, X, Pencil, Check } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +32,9 @@ export default function RecentUploads({ onSelectUpload }: RecentUploadsProps) {
   const [uploads, setUploads] = useState<RecentUpload[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editedName, setEditedName] = useState<string>("");
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -90,6 +93,44 @@ export default function RecentUploads({ onSelectUpload }: RecentUploadsProps) {
     }
   };
 
+  const handleStartEdit = (upload: RecentUpload, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(upload.id);
+    setEditedName(upload.name);
+  };
+
+  const handleSaveEdit = async (id: string, e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation();
+
+    if (!editedName.trim()) {
+      return;
+    }
+
+    // Optimistically update UI
+    const previousUploads = uploads;
+    setUploads(prevUploads =>
+      prevUploads.map(u => u.id === id ? { ...u, name: editedName } : u)
+    );
+    setEditingId(null);
+
+    try {
+      const response = await fetch(`/api/recent-uploads/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editedName }),
+      });
+      if (!response.ok) {
+        // Revert on failure
+        setUploads(previousUploads);
+        console.error('Failed to update upload name');
+      }
+    } catch (error) {
+      // Revert on error
+      setUploads(previousUploads);
+      console.error('Error updating upload name:', error);
+    }
+  };
+
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -129,27 +170,70 @@ export default function RecentUploads({ onSelectUpload }: RecentUploadsProps) {
           uploads.map((upload) => (
             <DropdownMenuItem
               key={upload.id}
-              onClick={() => handleSelect(upload.id)}
-              className="flex flex-col items-start gap-1 cursor-pointer hover:bg-zinc-800"
+              onClick={() => editingId !== upload.id && handleSelect(upload.id)}
+              onMouseEnter={() => setHoveredId(upload.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              className="flex flex-col items-start gap-1 cursor-pointer hover:!bg-zinc-800 focus:!bg-zinc-800"
             >
               <div className="flex w-full items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-zinc-50">
-                      {upload.fileType === 'robinhood' ? 'Robinhood' : 'Chase'}
-                    </span>
-                    <span className="text-xs text-zinc-500">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0 group">
+                      {editingId === upload.id ? (
+                        <input
+                          type="text"
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleSaveEdit(upload.id, e);
+                            } else if (e.key === 'Escape') {
+                              setEditingId(null);
+                            }
+                          }}
+                          className="flex-1 bg-zinc-800 text-zinc-50 px-2 py-1 rounded text-sm font-medium focus:outline-none focus:ring-1 focus:ring-zinc-600"
+                          autoFocus
+                        />
+                      ) : (
+                        <>
+                          <span className="font-medium text-zinc-50 truncate">
+                            {upload.name}
+                          </span>
+                          {hoveredId === upload.id && editingId !== upload.id && (
+                            <button
+                              onClick={(e) => handleStartEdit(upload, e)}
+                              className="shrink-0 p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+                              aria-label="Edit name"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <span className="text-xs text-zinc-500 shrink-0">
                       {formatDate(upload.timestamp)}
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={(e) => handleDelete(upload.id, e)}
-                  className="shrink-0 p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
-                  aria-label="Delete upload"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                {editingId === upload.id ? (
+                  <button
+                    onClick={(e) => handleSaveEdit(upload.id, e)}
+                    className="shrink-0 p-1 rounded hover:bg-zinc-700 text-green-400 hover:text-green-300 transition-colors"
+                    aria-label="Save name"
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => handleDelete(upload.id, e)}
+                    className="shrink-0 p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+                    aria-label="Delete upload"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
               <span className="text-xs text-zinc-400">
                 {upload.files.length} file{upload.files.length > 1 ? 's' : ''}

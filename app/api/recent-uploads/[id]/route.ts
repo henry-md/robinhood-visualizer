@@ -54,3 +54,28 @@ export async function DELETE(
     return NextResponse.json({ error: 'Failed to delete upload' }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { name } = body;
+
+    if (!name || typeof name !== 'string') {
+      return NextResponse.json({ error: 'Invalid name' }, { status: 400 });
+    }
+
+    await prisma.recentUpload.update({
+      where: { id },
+      data: { name },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error updating upload:', error);
+    return NextResponse.json({ error: 'Failed to update upload' }, { status: 500 });
+  }
+}
