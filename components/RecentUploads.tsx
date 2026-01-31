@@ -171,9 +171,9 @@ export default function RecentUploads({ onSelectUpload }: RecentUploadsProps) {
             <DropdownMenuItem
               key={upload.id}
               onClick={() => editingId !== upload.id && handleSelect(upload.id)}
-              onMouseEnter={() => setHoveredId(upload.id)}
-              onMouseLeave={() => setHoveredId(null)}
-              className="flex flex-col items-start gap-1 cursor-pointer hover:!bg-zinc-800 focus:!bg-zinc-800"
+              onMouseEnter={() => editingId !== upload.id && setHoveredId(upload.id)}
+              onMouseLeave={() => editingId !== upload.id && setHoveredId(null)}
+              className="flex flex-col items-start gap-1 cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800"
             >
               <div className="flex w-full items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -192,7 +192,7 @@ export default function RecentUploads({ onSelectUpload }: RecentUploadsProps) {
                               setEditingId(null);
                             }
                           }}
-                          className="flex-1 bg-zinc-800 text-zinc-50 px-2 py-1 rounded text-sm font-medium focus:outline-none focus:ring-1 focus:ring-zinc-600"
+                          className="flex-1 bg-zinc-800 text-zinc-50 px-2 py-1 rounded text-sm font-medium focus:outline-none ring-1 ring-zinc-600"
                           autoFocus
                         />
                       ) : (
