@@ -21,7 +21,8 @@ interface ChaseDashboardProps {
 export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddMore }: ChaseDashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>('fuzzy');
-  const [activeFileTab, setActiveFileTab] = useState(0);
+  // Start with Combined tab (-1) if there are multiple files, otherwise first file (0)
+  const [activeFileTab, setActiveFileTab] = useState(files.length > 1 ? -1 : 0);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     minAmount: "",
@@ -45,7 +46,8 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
   };
 
   // Clamp active tab to valid bounds (avoids useEffect for state updates)
-  const safeActiveTab = Math.min(activeFileTab, Math.max(0, files.length - 1));
+  // -1 represents "Combined" tab
+  const safeActiveTab = Math.min(activeFileTab, Math.max(files.length > 1 ? -1 : 0, files.length - 1));
 
   // Combine all transactions for stats
   const allTransactions = useMemo(() => {
@@ -56,8 +58,18 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
 
   // Get transactions for active file tab
   const activeTransactions = useMemo(() => {
+    // Combined view (activeFileTab === -1)
+    if (safeActiveTab === -1) {
+      // Combine all transactions and sort by timestamp (newest first)
+      return files
+        .flatMap(f => f.transactions)
+        .sort((a, b) => b.timestamp - a.timestamp);
+    }
+    // Individual file view
     return files[safeActiveTab]?.transactions || [];
   }, [files, safeActiveTab]);
+
+  const isCombinedView = safeActiveTab === -1;
 
   // AI Search function
   const performAISearch = async () => {
@@ -112,6 +124,13 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
       setAiSearchPerformed(false);
     }
   }, [searchQuery, searchMode]);
+
+  // Reset to Combined tab when files change from single to multiple
+  useEffect(() => {
+    if (files.length > 1 && activeFileTab >= files.length) {
+      setActiveFileTab(-1);
+    }
+  }, [files.length, activeFileTab]);
 
   // Filter transactions based on search mode and filters
   const filteredTransactions = useMemo(() => {
@@ -271,6 +290,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
         {files.length > 1 && (
           <div className="border-b border-zinc-200 dark:border-zinc-800">
             <nav className="-mb-px flex space-x-4 overflow-x-auto">
+              {/* Individual File Tabs */}
               {files.map((file, index) => (
                 <button
                   key={file.filename}
@@ -299,6 +319,18 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
                   </span>
                 </button>
               ))}
+
+              {/* Combined Tab */}
+              <button
+                onClick={() => setActiveFileTab(-1)}
+                className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
+                  safeActiveTab === -1
+                    ? 'border-zinc-900 text-zinc-900 dark:border-zinc-50 dark:text-zinc-50'
+                    : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-300'
+                }`}
+              >
+                Combined
+              </button>
             </nav>
           </div>
         )}
@@ -306,6 +338,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
         <ChaseTransactions
           transactions={filteredTransactions}
           totalCount={activeTransactions.length}
+          showAccountType={isCombinedView}
         />
       </div>
     </div>
