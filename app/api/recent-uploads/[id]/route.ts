@@ -3,11 +3,12 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const upload = await prisma.recentUpload.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         files: true,
       },
@@ -34,5 +35,22 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching upload:', error);
     return NextResponse.json({ error: 'Failed to fetch upload' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    await prisma.recentUpload.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting upload:', error);
+    return NextResponse.json({ error: 'Failed to delete upload' }, { status: 500 });
   }
 }

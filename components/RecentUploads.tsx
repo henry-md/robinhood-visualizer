@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Clock } from "lucide-react";
+import { Clock, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +67,29 @@ export default function RecentUploads({ onSelectUpload }: RecentUploadsProps) {
     }
   };
 
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Optimistically remove from UI
+    const previousUploads = uploads;
+    setUploads(prevUploads => prevUploads.filter(u => u.id !== id));
+
+    try {
+      const response = await fetch(`/api/recent-uploads/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        // Revert on failure
+        setUploads(previousUploads);
+        console.error('Failed to delete upload');
+      }
+    } catch (error) {
+      // Revert on error
+      setUploads(previousUploads);
+      console.error('Error deleting upload:', error);
+    }
+  };
+
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -92,7 +115,7 @@ export default function RecentUploads({ onSelectUpload }: RecentUploadsProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 bg-zinc-900 border-zinc-800">
-        <DropdownMenuLabel>Recent Uploads</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-zinc-50">Recent Uploads</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {loading ? (
           <div className="px-2 py-6 text-center text-sm text-zinc-400">
@@ -107,15 +130,26 @@ export default function RecentUploads({ onSelectUpload }: RecentUploadsProps) {
             <DropdownMenuItem
               key={upload.id}
               onClick={() => handleSelect(upload.id)}
-              className="flex flex-col items-start gap-1 cursor-pointer"
+              className="flex flex-col items-start gap-1 cursor-pointer hover:bg-zinc-800"
             >
-              <div className="flex w-full items-center justify-between">
-                <span className="font-medium text-zinc-50">
-                  {upload.fileType === 'robinhood' ? 'Robinhood' : 'Chase'}
-                </span>
-                <span className="text-xs text-zinc-500">
-                  {formatDate(upload.timestamp)}
-                </span>
+              <div className="flex w-full items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-zinc-50">
+                      {upload.fileType === 'robinhood' ? 'Robinhood' : 'Chase'}
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      {formatDate(upload.timestamp)}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => handleDelete(upload.id, e)}
+                  className="shrink-0 p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                  aria-label="Delete upload"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
               <span className="text-xs text-zinc-400">
                 {upload.files.length} file{upload.files.length > 1 ? 's' : ''}

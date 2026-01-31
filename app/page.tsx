@@ -83,7 +83,8 @@ export default function Home() {
         // Append to existing files
         const updatedFiles = [...chaseFiles, parsedFile];
         setChaseFiles(updatedFiles);
-        // Don't save to recent here - will be handled by batch handler or manually
+        // Save single file upload to recent
+        await saveUploadToRecent('chase', [parsedFile]);
       } else {
         setError("Unknown file format. Please upload a Robinhood or Chase CSV file.");
       }
