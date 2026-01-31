@@ -16,12 +16,13 @@ import {
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void | Promise<void>;
+  onBatchFilesSelect?: (files: File[]) => void | Promise<void>;
   existingFilenames?: string[];
   currentFileType?: FileType;
   onClearFiles?: () => void;
 }
 
-export default function FileUpload({ onFileSelect, existingFilenames = [], currentFileType = 'unknown', onClearFiles }: FileUploadProps) {
+export default function FileUpload({ onFileSelect, onBatchFilesSelect, existingFilenames = [], currentFileType = 'unknown', onClearFiles }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
@@ -50,9 +51,13 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
     if (onClearFiles) {
       onClearFiles();
     }
-    // Process the pending files
-    for (const file of pendingFiles) {
-      await onFileSelect(file);
+    // Process the pending files as a batch
+    if (onBatchFilesSelect && pendingFiles.length > 1) {
+      await onBatchFilesSelect(pendingFiles);
+    } else {
+      for (const file of pendingFiles) {
+        await onFileSelect(file);
+      }
     }
     setPendingFiles([]);
     // Reset the input
@@ -163,8 +168,13 @@ export default function FileUpload({ onFileSelect, existingFilenames = [], curre
     }
 
     // All validations passed - process files
-    for (const file of validFiles) {
-      await onFileSelect(file);
+    // If multiple files and batch handler exists, use batch handler
+    if (validFiles.length > 1 && onBatchFilesSelect) {
+      await onBatchFilesSelect(validFiles);
+    } else {
+      for (const file of validFiles) {
+        await onFileSelect(file);
+      }
     }
 
     // Reset the input so the same files can be selected again

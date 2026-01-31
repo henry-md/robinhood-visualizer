@@ -4,6 +4,7 @@
 /node_modules
 /.pnp
 .pnp.*
+.pnpm-store
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
@@ -39,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local data storage
+.data
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal

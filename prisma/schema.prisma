@@ -1,0 +1,32 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model RecentUpload {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  fileType  String   // 'robinhood' or 'chase'
+  name      String
+  files     UploadFile[]
+
+  @@index([timestamp])
+}
+
+model UploadFile {
+  id             String        @id @default(cuid())
+  uploadId       String
+  filename       String
+  content        String        // Store CSV content or JSON transactions
+  accountType    String?       // 'checking' or 'credit' for Chase files
+  upload         RecentUpload  @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@index([uploadId])
+}

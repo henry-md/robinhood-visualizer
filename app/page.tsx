@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import FileUpload from "@/components/FileUpload";
 import RobinhoodDashboard from "@/components/RobinhoodDashboard";
 import ChaseDashboard from "@/components/ChaseDashboard";
+import RecentUploads from "@/components/RecentUploads";
 import { parseRobinhoodCSV } from "@/lib/csvParser";
 import { DepositData, PortfolioValueData, ChaseTransaction, ChaseFile, FileType } from "@/lib/types";
 import { parseAllTransactions, getAllUniqueTickers } from "@/lib/portfolioCalculations";
@@ -25,6 +26,42 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  const saveUploadToRecent = async (type: FileType, files: ChaseFile[] | File) => {
+    try {
+      const uploadData: any = {
+        fileType: type,
+        files: []
+      };
+
+      if (type === 'chase' && Array.isArray(files)) {
+        // For Chase files, read the actual file content
+        for (const chaseFile of files) {
+          // Store the transactions as JSON string
+          uploadData.files.push({
+            filename: chaseFile.filename,
+            content: JSON.stringify(chaseFile.transactions),
+            accountType: chaseFile.accountType
+          });
+        }
+      } else if (type === 'robinhood' && files instanceof File) {
+        // For Robinhood, read the file content
+        const content = await files.text();
+        uploadData.files.push({
+          filename: files.name,
+          content: content
+        });
+      }
+
+      await fetch('/api/recent-uploads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(uploadData)
+      });
+    } catch (error) {
+      console.error('Error saving to recent uploads:', error);
+    }
+  };
+
   const handleFileSelect = async (file: File) => {
     setLoading(true);
     setError(null);
@@ -38,16 +75,55 @@ export default function Home() {
         setFileType('robinhood');
         const parsedDeposits = await parseRobinhoodCSV(file);
         setDeposits(parsedDeposits);
+        // Save to recent uploads
+        await saveUploadToRecent('robinhood', file);
       } else if (detectedType === 'chase') {
         setFileType('chase');
         const parsedFile = await parseChaseCSV(file);
         // Append to existing files
-        setChaseFiles(prev => [...prev, parsedFile]);
+        const updatedFiles = [...chaseFiles, parsedFile];
+        setChaseFiles(updatedFiles);
+        // Don't save to recent here - will be handled by batch handler or manually
       } else {
         setError("Unknown file format. Please upload a Robinhood or Chase CSV file.");
       }
     } catch (err) {
       setError("Failed to parse CSV file. Please check the file format.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBatchFilesSelect = async (files: File[]) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const parsedChaseFiles: ChaseFile[] = [];
+
+      // Process all files
+      for (const file of files) {
+        const detectedType = await detectFileType(file);
+
+        if (detectedType === 'chase') {
+          const parsedFile = await parseChaseCSV(file);
+          parsedChaseFiles.push(parsedFile);
+        } else {
+          setError(`File ${file.name} is not a valid Chase CSV file.`);
+          return;
+        }
+      }
+
+      // Update state with all parsed files
+      setFileType('chase');
+      const updatedFiles = [...chaseFiles, ...parsedChaseFiles];
+      setChaseFiles(updatedFiles);
+
+      // Save to recent uploads once with all files
+      await saveUploadToRecent('chase', parsedChaseFiles);
+    } catch (err) {
+      setError("Failed to parse CSV files. Please check the file format.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -76,6 +152,53 @@ export default function Home() {
     setPortfolioData([]);
     setCsvFile(null);
     setFileType('unknown');
+  };
+
+  const handleRecentUploadSelect = async (upload: any) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Clear existing data first
+      handleClearAllFiles();
+
+      if (upload.fileType === 'robinhood') {
+        // Restore Robinhood file
+        const fileContent = upload.files[0].content;
+        const blob = new Blob([fileContent], { type: 'text/csv' });
+        const file = new File([blob], upload.files[0].filename, { type: 'text/csv' });
+
+        setFileType('robinhood');
+        setCsvFile(file);
+        const parsedDeposits = await parseRobinhoodCSV(file);
+        setDeposits(parsedDeposits);
+      } else if (upload.fileType === 'chase') {
+        // Restore Chase files
+        setFileType('chase');
+        const restoredFiles: ChaseFile[] = [];
+
+        for (const fileData of upload.files) {
+          const transactions = JSON.parse(fileData.content);
+          const chaseFile: ChaseFile = {
+            filename: fileData.filename,
+            transactions: transactions,
+            dateRange: {
+              start: transactions[0]?.postingDate || '',
+              end: transactions[transactions.length - 1]?.postingDate || ''
+            },
+            accountType: fileData.accountType || 'checking'
+          };
+          restoredFiles.push(chaseFile);
+        }
+
+        setChaseFiles(restoredFiles);
+      }
+    } catch (err) {
+      setError("Failed to restore upload. " + (err as Error).message);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLoadPortfolio = async () => {
@@ -129,18 +252,22 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-50 font-sans dark:bg-zinc-950">
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Financial Tracker
-          </h1>
-          <p className="mt-2 text-lg text-zinc-600 dark:text-zinc-400">
-            Upload your Robinhood or Chase CSV to visualize your financial data
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+              Financial Tracker
+            </h1>
+            <p className="mt-2 text-lg text-zinc-600 dark:text-zinc-400">
+              Upload your Robinhood or Chase CSV to visualize your financial data
+            </p>
+          </div>
+          <RecentUploads onSelectUpload={handleRecentUploadSelect} />
         </div>
 
         <div className="space-y-8">
           <FileUpload
             onFileSelect={handleFileSelect}
+            onBatchFilesSelect={handleBatchFilesSelect}
             existingFilenames={chaseFiles.map(f => f.filename)}
             currentFileType={fileType}
             onClearFiles={handleClearAllFiles}
