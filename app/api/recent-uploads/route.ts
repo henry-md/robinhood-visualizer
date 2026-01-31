@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+interface UploadFileData {
+  filename: string;
+  content: string;
+  accountType?: string | null;
+}
+
+interface UploadRequestBody {
+  fileType: string;
+  files: UploadFileData[];
+  name?: string;
+}
+
 export async function GET() {
   try {
     const uploads = await prisma.recentUpload.findMany({
@@ -35,23 +47,21 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json() as UploadRequestBody;
     const { fileType, files, name } = body;
 
     if (!fileType || !files || files.length === 0) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const uploadName = name || (fileType === 'robinhood'
-      ? 'Robinhood'
-      : `Chase (${files.length} file${files.length > 1 ? 's' : ''})`);
+    const uploadName = name || (fileType === 'robinhood' ? 'Robinhood' : 'Chase');
 
     const upload = await prisma.recentUpload.create({
       data: {
         fileType,
         name: uploadName,
         files: {
-          create: files.map((file: any) => ({
+          create: files.map((file) => ({
             filename: file.filename,
             content: file.content,
             accountType: file.accountType || null,
