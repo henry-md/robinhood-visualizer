@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import fuzzysort from "fuzzysort";
 import { ChaseFile } from "@/lib/types";
 import ChaseTransactions from "./ChaseTransactions";
@@ -8,6 +8,7 @@ import ChaseFileList from "./ChaseFileList";
 import StatsBlock from "./StatsBlock";
 import SearchBar, { SearchMode } from "./SearchBar";
 import TransactionFilters, { FilterState } from "./TransactionFilters";
+import AINotification from "./AINotification";
 import { calculateChaseStats } from "@/lib/chaseStats";
 
 interface ChaseDashboardProps {
@@ -28,6 +29,9 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
     startDate: "",
     endDate: "",
   });
+  const [aiIndices, setAiIndices] = useState<number[]>([]);
+  const [aiMessage, setAiMessage] = useState<string>("");
+  const [isAiSearching, setIsAiSearching] = useState(false);
 
   // Reset filters
   const resetFilters = () => {
@@ -53,6 +57,45 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
   const activeTransactions = useMemo(() => {
     return files[safeActiveTab]?.transactions || [];
   }, [files, safeActiveTab]);
+
+  // AI Search effect
+  useEffect(() => {
+    const performAISearch = async () => {
+      if (searchMode !== 'ai' || !searchQuery.trim()) {
+        setAiIndices([]);
+        setAiMessage("");
+        return;
+      }
+
+      setIsAiSearching(true);
+      try {
+        const response = await fetch('/api/ai-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: searchQuery,
+            transactions: activeTransactions,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('AI search failed');
+        }
+
+        const data = await response.json();
+        setAiIndices(data.indices || []);
+        setAiMessage(data.message || "");
+      } catch (error) {
+        console.error('AI search error:', error);
+        setAiIndices([]);
+        setAiMessage("Failed to perform AI search. Please try again.");
+      } finally {
+        setIsAiSearching(false);
+      }
+    };
+
+    performAISearch();
+  }, [searchQuery, searchMode, activeTransactions]);
 
   // Filter transactions based on search mode and filters
   const filteredTransactions = useMemo(() => {
@@ -97,6 +140,14 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
       return filtered;
     }
 
+    // AI mode - filter by indices returned from AI
+    if (searchMode === 'ai') {
+      if (isAiSearching) {
+        return []; // Show no results while searching
+      }
+      return filtered.filter((_, index) => aiIndices.includes(index));
+    }
+
     if (searchMode === 'fuzzy') {
       // Use fuzzysort library for fast, optimized fuzzy search
       const results = fuzzysort.go(searchQuery, filtered, {
@@ -122,7 +173,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
         return filtered;
       }
     }
-  }, [activeTransactions, searchQuery, searchMode, filters, showFilters]);
+  }, [activeTransactions, searchQuery, searchMode, filters, showFilters, aiIndices, isAiSearching]);
 
   return (
     <div className="space-y-8">
@@ -169,11 +220,31 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
         placeholder={
           searchMode === 'fuzzy'
             ? "Search transactions (fuzzy matching)..."
-            : "Search transactions (regex)..."
+            : searchMode === 'regex'
+            ? "Search transactions (regex)..."
+            : "Ask AI to search transactions..."
         }
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(!showFilters)}
       />
+
+      {searchMode === 'ai' && isAiSearching && searchQuery.trim() && (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex items-center gap-3">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100"></div>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              AI is analyzing your transactions...
+            </p>
+          </div>
+        </div>
+      )}
+
+      {aiMessage && searchMode === 'ai' && !isAiSearching && (
+        <AINotification
+          message={aiMessage}
+          onDismiss={() => setAiMessage("")}
+        />
+      )}
 
       {showFilters && (
         <TransactionFilters

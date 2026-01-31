@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Filter } from "lucide-react";
 
-export type SearchMode = 'fuzzy' | 'regex';
+export type SearchMode = 'fuzzy' | 'regex' | 'ai';
 
 interface SearchBarProps {
   value: string;
@@ -18,6 +18,7 @@ interface SearchBarProps {
 export default function SearchBar({ value, onChange, mode, onModeChange, placeholder = "Search transactions...", showFilters = false, onToggleFilters }: SearchBarProps) {
   const [showFuzzyTooltip, setShowFuzzyTooltip] = useState(false);
   const [showRegexTooltip, setShowRegexTooltip] = useState(false);
+  const [showAiTooltip, setShowAiTooltip] = useState(false);
 
   return (
     <div className="space-y-2">
@@ -117,7 +118,7 @@ export default function SearchBar({ value, onChange, mode, onModeChange, placeho
               onClick={() => onModeChange('regex')}
               onMouseEnter={() => setShowRegexTooltip(true)}
               onMouseLeave={() => setShowRegexTooltip(false)}
-              className={`-ml-px rounded-r-lg border border-zinc-300 px-3 py-2 text-xs font-medium transition-colors dark:border-zinc-700 ${
+              className={`-ml-px border border-zinc-300 px-3 py-2 text-xs font-medium transition-colors dark:border-zinc-700 ${
                 mode === 'regex'
                   ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
                   : 'bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
@@ -190,6 +191,76 @@ export default function SearchBar({ value, onChange, mode, onModeChange, placeho
                     <li><code className="font-mono">\d</code> - Any digit</li>
                     <li><code className="font-mono">\s</code> - Whitespace</li>
                   </ul>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* AI Button with Tooltip */}
+          <div className="relative">
+            <button
+              onClick={() => onModeChange('ai')}
+              onMouseEnter={() => setShowAiTooltip(true)}
+              onMouseLeave={() => setShowAiTooltip(false)}
+              className={`-ml-px rounded-r-lg border border-zinc-300 px-3 py-2 text-xs font-medium transition-colors dark:border-zinc-700 ${
+                mode === 'ai'
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                  : 'bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+              }`}
+              type="button"
+            >
+              AI
+            </button>
+
+            {showAiTooltip && (
+              <div className="absolute right-0 top-12 z-50 w-96 rounded-lg border border-zinc-200 bg-white p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+                <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  AI Search
+                </h3>
+                <p className="mb-3 text-xs text-zinc-600 dark:text-zinc-400">
+                  Natural language search powered by AI. Ask questions about your transactions in plain English.
+                </p>
+
+                <div className="space-y-2 text-xs">
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-50">Examples:</p>
+                  <div>
+                    <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono dark:bg-zinc-800">
+                      coffee shops last month
+                    </code>
+                    <span className="ml-2 text-zinc-600 dark:text-zinc-400">
+                      Find all coffee-related purchases
+                    </span>
+                  </div>
+                  <div>
+                    <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono dark:bg-zinc-800">
+                      large purchases over $500
+                    </code>
+                    <span className="ml-2 text-zinc-600 dark:text-zinc-400">
+                      Filter by amount with natural language
+                    </span>
+                  </div>
+                  <div>
+                    <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono dark:bg-zinc-800">
+                      subscriptions
+                    </code>
+                    <span className="ml-2 text-zinc-600 dark:text-zinc-400">
+                      Identify recurring charges
+                    </span>
+                  </div>
+                  <div>
+                    <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono dark:bg-zinc-800">
+                      dining expenses in December
+                    </code>
+                    <span className="ml-2 text-zinc-600 dark:text-zinc-400">
+                      Combine category and date filters
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                    The AI analyzes your query and returns matching transactions with optional insights.
+                  </p>
                 </div>
               </div>
             )}
