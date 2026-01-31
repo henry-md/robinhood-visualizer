@@ -34,6 +34,9 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
   const [aiMessage, setAiMessage] = useState<string>("");
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiSearchPerformed, setAiSearchPerformed] = useState(false);
+  const [sortColumn, setSortColumn] = useState<'date' | 'description' | 'category' | 'type' | 'amount' | 'balance'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [userHasSetSort, setUserHasSetSort] = useState(false);
 
   // Reset filters
   const resetFilters = () => {
@@ -190,6 +193,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
 
     if (searchMode === 'fuzzy') {
       // Use fuzzysort library for fast, optimized fuzzy search
+      // Sort by relevance (fuzzysort's default behavior)
       const results = fuzzysort.go(searchQuery, filtered, {
         keys: ['description', 'type', 'postingDate', 'category'],
         threshold: -10000, // Allow fuzzy matches
@@ -214,6 +218,62 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
       }
     }
   }, [activeTransactions, searchQuery, searchMode, filters, showFilters, aiIndices, isAiSearching, aiSearchPerformed]);
+
+  // Sort transactions based on selected column and direction
+  const sortedTransactions = useMemo(() => {
+    // If fuzzy search is active and user hasn't explicitly set a sort, keep relevance order
+    const isFuzzySearchActive = searchMode === 'fuzzy' && searchQuery.trim();
+    if (isFuzzySearchActive && !userHasSetSort) {
+      return filteredTransactions;
+    }
+
+    const sorted = [...filteredTransactions];
+    sorted.sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case 'date':
+          comparison = a.timestamp - b.timestamp;
+          break;
+        case 'description':
+          comparison = a.description.localeCompare(b.description);
+          break;
+        case 'category':
+          comparison = (a.category || '').localeCompare(b.category || '');
+          break;
+        case 'type':
+          comparison = a.type.localeCompare(b.type);
+          break;
+        case 'amount':
+          comparison = a.amount - b.amount;
+          break;
+        case 'balance':
+          comparison = (a.balance ?? 0) - (b.balance ?? 0);
+          break;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [filteredTransactions, sortColumn, sortDirection, searchMode, searchQuery, userHasSetSort]);
+
+  const handleSort = (column: typeof sortColumn) => {
+    setUserHasSetSort(true);
+    if (sortColumn === column) {
+      // Toggle direction if clicking same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New column - default to descending for date/amount, ascending for others
+      setSortColumn(column);
+      setSortDirection(column === 'date' || column === 'amount' || column === 'balance' ? 'desc' : 'asc');
+    }
+  };
+
+  // Reset user sort preference when changing search modes or clearing search
+  useEffect(() => {
+    setUserHasSetSort(false);
+  }, [searchMode, searchQuery]);
 
   return (
     <div className="space-y-8">
@@ -261,8 +321,8 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
           searchMode === 'fuzzy'
             ? "Search transactions (fuzzy matching)..."
             : searchMode === 'regex'
-            ? "Search transactions (regex)..."
-            : "Ask AI to search transactions..."
+              ? "Search transactions (regex)..."
+              : "Ask AI to search transactions..."
         }
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(!showFilters)}
@@ -296,16 +356,16 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
                   key={file.filename}
                   onClick={() => setActiveFileTab(index)}
                   className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${safeActiveTab === index
-                      ? 'border-zinc-900 text-zinc-900 dark:border-zinc-50 dark:text-zinc-50'
-                      : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-300'
+                    ? 'border-zinc-900 text-zinc-900 dark:border-zinc-50 dark:text-zinc-50'
+                    : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-300'
                     }`}
                 >
                   <span className="flex items-center gap-2">
                     <span className="group/badge relative inline-flex items-center">
                       <span
                         className={`inline-flex h-5 w-5 items-center justify-center rounded text-xs font-bold ${file.accountType === 'credit'
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                            : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                          : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
                           }`}
                       >
                         {file.accountType === 'credit' ? 'C' : 'D'}
@@ -323,11 +383,10 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
               {/* Combined Tab */}
               <button
                 onClick={() => setActiveFileTab(-1)}
-                className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-                  safeActiveTab === -1
+                className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${safeActiveTab === -1
                     ? 'border-zinc-900 text-zinc-900 dark:border-zinc-50 dark:text-zinc-50'
                     : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-300'
-                }`}
+                  }`}
               >
                 Combined
               </button>
@@ -336,9 +395,12 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
         )}
 
         <ChaseTransactions
-          transactions={filteredTransactions}
+          transactions={sortedTransactions}
           totalCount={activeTransactions.length}
           showAccountType={isCombinedView}
+          sortColumn={userHasSetSort || (searchMode !== 'fuzzy' || !searchQuery.trim()) ? sortColumn : undefined}
+          sortDirection={sortDirection}
+          onSort={handleSort}
         />
       </div>
     </div>
