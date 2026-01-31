@@ -32,6 +32,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
   const [aiIndices, setAiIndices] = useState<number[]>([]);
   const [aiMessage, setAiMessage] = useState<string>("");
   const [isAiSearching, setIsAiSearching] = useState(false);
+  const [aiSearchPerformed, setAiSearchPerformed] = useState(false);
 
   // Reset filters
   const resetFilters = () => {
@@ -58,44 +59,59 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
     return files[safeActiveTab]?.transactions || [];
   }, [files, safeActiveTab]);
 
-  // AI Search effect
+  // AI Search function
+  const performAISearch = async () => {
+    if (!searchQuery.trim()) {
+      setAiIndices([]);
+      setAiMessage("");
+      setAiSearchPerformed(false);
+      return;
+    }
+
+    setIsAiSearching(true);
+    try {
+      const response = await fetch('/api/ai-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: searchQuery,
+          transactions: activeTransactions,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('AI search failed');
+      }
+
+      const data = await response.json();
+      setAiIndices(data.indices || []);
+      setAiMessage(data.message || "");
+      setAiSearchPerformed(true);
+    } catch (error) {
+      console.error('AI search error:', error);
+      setAiIndices([]);
+      setAiMessage("Failed to perform AI search. Please try again.");
+      setAiSearchPerformed(true);
+    } finally {
+      setIsAiSearching(false);
+    }
+  };
+
+  // Reset AI search when switching modes
   useEffect(() => {
-    const performAISearch = async () => {
-      if (searchMode !== 'ai' || !searchQuery.trim()) {
-        setAiIndices([]);
-        setAiMessage("");
-        return;
-      }
+    if (searchMode !== 'ai') {
+      setAiIndices([]);
+      setAiMessage("");
+      setAiSearchPerformed(false);
+    }
+  }, [searchMode]);
 
-      setIsAiSearching(true);
-      try {
-        const response = await fetch('/api/ai-search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: searchQuery,
-            transactions: activeTransactions,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('AI search failed');
-        }
-
-        const data = await response.json();
-        setAiIndices(data.indices || []);
-        setAiMessage(data.message || "");
-      } catch (error) {
-        console.error('AI search error:', error);
-        setAiIndices([]);
-        setAiMessage("Failed to perform AI search. Please try again.");
-      } finally {
-        setIsAiSearching(false);
-      }
-    };
-
-    performAISearch();
-  }, [searchQuery, searchMode, activeTransactions]);
+  // Reset AI search performed state when query changes in AI mode
+  useEffect(() => {
+    if (searchMode === 'ai') {
+      setAiSearchPerformed(false);
+    }
+  }, [searchQuery, searchMode]);
 
   // Filter transactions based on search mode and filters
   const filteredTransactions = useMemo(() => {
@@ -143,9 +159,14 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
     // AI mode - filter by indices returned from AI
     if (searchMode === 'ai') {
       if (isAiSearching) {
-        return []; // Show no results while searching
+        return filtered; // Show all results while searching (button has spinner)
       }
-      return filtered.filter((_, index) => aiIndices.includes(index));
+      // Only filter if we have performed a search
+      if (aiSearchPerformed) {
+        return filtered.filter((_, index) => aiIndices.includes(index));
+      }
+      // If no search performed yet, return all
+      return filtered;
     }
 
     if (searchMode === 'fuzzy') {
@@ -173,7 +194,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
         return filtered;
       }
     }
-  }, [activeTransactions, searchQuery, searchMode, filters, showFilters, aiIndices, isAiSearching]);
+  }, [activeTransactions, searchQuery, searchMode, filters, showFilters, aiIndices, isAiSearching, aiSearchPerformed]);
 
   return (
     <div className="space-y-8">
@@ -226,20 +247,11 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
         }
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(!showFilters)}
+        onAISearch={performAISearch}
+        isAISearching={isAiSearching}
       />
 
-      {searchMode === 'ai' && isAiSearching && searchQuery.trim() && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center gap-3">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100"></div>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              AI is analyzing your transactions...
-            </p>
-          </div>
-        </div>
-      )}
-
-      {aiMessage && searchMode === 'ai' && !isAiSearching && (
+      {aiMessage && searchMode === 'ai' && (
         <AINotification
           message={aiMessage}
           onDismiss={() => setAiMessage("")}

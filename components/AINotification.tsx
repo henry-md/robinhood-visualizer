@@ -14,7 +14,7 @@ export default function AINotification({ message, onDismiss }: AINotificationPro
         <div className="flex-1">
           <div className="mb-1 flex items-center gap-2">
             <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-              AI Insight
+              AI clarification
             </span>
           </div>
           <p className="text-sm text-blue-800 dark:text-blue-200">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Filter } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 
 export type SearchMode = 'fuzzy' | 'regex' | 'ai';
 
@@ -13,12 +13,20 @@ interface SearchBarProps {
   placeholder?: string;
   showFilters?: boolean;
   onToggleFilters?: () => void;
+  onAISearch?: () => void;
+  isAISearching?: boolean;
 }
 
-export default function SearchBar({ value, onChange, mode, onModeChange, placeholder = "Search transactions...", showFilters = false, onToggleFilters }: SearchBarProps) {
+export default function SearchBar({ value, onChange, mode, onModeChange, placeholder = "Search transactions...", showFilters = false, onToggleFilters, onAISearch, isAISearching = false }: SearchBarProps) {
   const [showFuzzyTooltip, setShowFuzzyTooltip] = useState(false);
   const [showRegexTooltip, setShowRegexTooltip] = useState(false);
   const [showAiTooltip, setShowAiTooltip] = useState(false);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (mode === 'ai' && e.key === 'Enter' && onAISearch) {
+      onAISearch();
+    }
+  };
 
   return (
     <div className="space-y-2">
@@ -28,9 +36,26 @@ export default function SearchBar({ value, onChange, mode, onModeChange, placeho
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-400 dark:focus:border-zinc-500"
+            className={`w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-400 dark:focus:border-zinc-500 ${
+              mode === 'ai' ? 'pr-12' : ''
+            }`}
           />
+          {mode === 'ai' && (
+            <button
+              onClick={onAISearch}
+              disabled={isAISearching || !value.trim()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-zinc-500 transition-colors hover:text-zinc-900 disabled:opacity-30 disabled:cursor-not-allowed dark:text-zinc-400 dark:hover:text-zinc-100"
+              title="Search with AI (Enter)"
+            >
+              {isAISearching ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-500 border-t-transparent dark:border-zinc-400 dark:border-t-transparent"></div>
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Mode Toggle with Tooltips */}
