@@ -62,7 +62,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
     if (safeActiveTab === -1) {
       // Combine all transactions and sort by timestamp (newest first)
       return files
-        .flatMap(f => f.transactions)
+        .flatMap(f => f.transactions.map(t => ({ ...t, filename: f.filename })))
         .sort((a, b) => b.timestamp - a.timestamp);
     }
     // Individual file view

@@ -34,7 +34,7 @@ export default function ChaseTransactions({ transactions, totalCount, showAccoun
           Showing {isShowingAll ? 'all ' : ''}{transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
         </p>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-visible">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-zinc-200 dark:border-zinc-800">
               <tr>
@@ -81,8 +81,8 @@ export default function ChaseTransactions({ transactions, totalCount, showAccoun
                         >
                           {transaction.accountType === 'credit' ? 'C' : 'D'}
                         </span>
-                        <span className="pointer-events-none absolute -top-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-zinc-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover/badge:opacity-100 dark:bg-zinc-50 dark:text-zinc-900">
-                          {transaction.accountType === 'credit' ? 'Credit Card' : 'Checking Account'}
+                        <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-zinc-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover/badge:opacity-100 dark:bg-zinc-50 dark:text-zinc-900">
+                          {transaction.filename || (transaction.accountType === 'credit' ? 'Credit Card' : 'Checking Account')}
                         </span>
                       </div>
                     </td>

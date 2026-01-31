@@ -74,6 +74,7 @@ export interface ChaseTransaction {
   memo?: string; // Only for credit cards
   timestamp: number;
   accountType: 'checking' | 'credit'; // Track which type of account
+  filename?: string; // Track source file for combined view
 }
 
 export interface ChaseFile {
