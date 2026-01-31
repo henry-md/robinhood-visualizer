@@ -7,6 +7,7 @@ import ChaseTransactions from "./ChaseTransactions";
 import ChaseFileList from "./ChaseFileList";
 import StatsBlock from "./StatsBlock";
 import SearchBar, { SearchMode } from "./SearchBar";
+import TransactionFilters, { FilterState } from "./TransactionFilters";
 import { calculateChaseStats } from "@/lib/chaseStats";
 
 interface ChaseDashboardProps {
@@ -20,6 +21,23 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>('fuzzy');
   const [activeFileTab, setActiveFileTab] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    minAmount: "",
+    maxAmount: "",
+    startDate: "",
+    endDate: "",
+  });
+
+  // Reset filters
+  const resetFilters = () => {
+    setFilters({
+      minAmount: "",
+      maxAmount: "",
+      startDate: "",
+      endDate: "",
+    });
+  };
 
   // Clamp active tab to valid bounds (avoids useEffect for state updates)
   const safeActiveTab = Math.min(activeFileTab, Math.max(0, files.length - 1));
@@ -36,15 +54,52 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
     return files[safeActiveTab]?.transactions || [];
   }, [files, safeActiveTab]);
 
-  // Filter transactions based on search mode
+  // Filter transactions based on search mode and filters
   const filteredTransactions = useMemo(() => {
+    let filtered = activeTransactions;
+
+    // Only apply filters if the filter panel is visible
+    if (showFilters) {
+      // Apply amount range filter
+      const minAmt = filters.minAmount ? parseFloat(filters.minAmount) : null;
+      const maxAmt = filters.maxAmount ? parseFloat(filters.maxAmount) : null;
+
+      if (minAmt !== null || maxAmt !== null) {
+        filtered = filtered.filter((transaction) => {
+          const absAmount = Math.abs(transaction.amount);
+          if (minAmt !== null && absAmount < minAmt) return false;
+          if (maxAmt !== null && absAmount > maxAmt) return false;
+          return true;
+        });
+      }
+
+      // Apply date range filter
+      if (filters.startDate || filters.endDate) {
+        filtered = filtered.filter((transaction) => {
+          const txDate = new Date(transaction.timestamp);
+          if (filters.startDate) {
+            const startDate = new Date(filters.startDate);
+            if (txDate < startDate) return false;
+          }
+          if (filters.endDate) {
+            const endDate = new Date(filters.endDate);
+            // Set to end of day
+            endDate.setHours(23, 59, 59, 999);
+            if (txDate > endDate) return false;
+          }
+          return true;
+        });
+      }
+    }
+
+    // Apply text search filter
     if (!searchQuery.trim()) {
-      return activeTransactions;
+      return filtered;
     }
 
     if (searchMode === 'fuzzy') {
       // Use fuzzysort library for fast, optimized fuzzy search
-      const results = fuzzysort.go(searchQuery, activeTransactions, {
+      const results = fuzzysort.go(searchQuery, filtered, {
         keys: ['description', 'type', 'postingDate', 'category'],
         threshold: -10000, // Allow fuzzy matches
       });
@@ -53,7 +108,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
       // Use regex search
       try {
         const regex = new RegExp(searchQuery, "i");
-        return activeTransactions.filter((transaction) => {
+        return filtered.filter((transaction) => {
           return (
             regex.test(transaction.description) ||
             regex.test(transaction.type) ||
@@ -64,10 +119,10 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
       } catch (error) {
         // Invalid regex - return all transactions
         console.error("Invalid regex:", error);
-        return activeTransactions;
+        return filtered;
       }
     }
-  }, [activeTransactions, searchQuery, searchMode]);
+  }, [activeTransactions, searchQuery, searchMode, filters, showFilters]);
 
   return (
     <div className="space-y-8">
@@ -116,7 +171,17 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
             ? "Search transactions (fuzzy matching)..."
             : "Search transactions (regex)..."
         }
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(!showFilters)}
       />
+
+      {showFilters && (
+        <TransactionFilters
+          filters={filters}
+          onChange={setFilters}
+          onReset={resetFilters}
+        />
+      )}
 
       <div className="space-y-4">
         {/* File Tabs */}
@@ -155,7 +220,10 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
           </div>
         )}
 
-        <ChaseTransactions transactions={filteredTransactions} />
+        <ChaseTransactions
+          transactions={filteredTransactions}
+          totalCount={activeTransactions.length}
+        />
       </div>
     </div>
   );

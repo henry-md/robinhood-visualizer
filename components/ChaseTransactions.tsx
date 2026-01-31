@@ -4,9 +4,12 @@ import { ChaseTransaction } from "@/lib/types";
 
 interface ChaseTransactionsProps {
   transactions: ChaseTransaction[];
+  totalCount?: number;
 }
 
-export default function ChaseTransactions({ transactions }: ChaseTransactionsProps) {
+export default function ChaseTransactions({ transactions, totalCount }: ChaseTransactionsProps) {
+  const isShowingAll = totalCount !== undefined && transactions.length === totalCount;
+
   if (transactions.length === 0) {
     return (
       <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
@@ -27,7 +30,7 @@ export default function ChaseTransactions({ transactions }: ChaseTransactionsPro
           Chase Transactions
         </h2>
         <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-          Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+          Showing {isShowingAll ? 'all ' : ''}{transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
         </p>
 
         <div className="overflow-x-auto">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Filter } from "lucide-react";
 
 export type SearchMode = 'fuzzy' | 'regex';
 
@@ -10,9 +11,11 @@ interface SearchBarProps {
   mode: SearchMode;
   onModeChange: (mode: SearchMode) => void;
   placeholder?: string;
+  showFilters?: boolean;
+  onToggleFilters?: () => void;
 }
 
-export default function SearchBar({ value, onChange, mode, onModeChange, placeholder = "Search transactions..." }: SearchBarProps) {
+export default function SearchBar({ value, onChange, mode, onModeChange, placeholder = "Search transactions...", showFilters = false, onToggleFilters }: SearchBarProps) {
   const [showFuzzyTooltip, setShowFuzzyTooltip] = useState(false);
   const [showRegexTooltip, setShowRegexTooltip] = useState(false);
 
@@ -30,22 +33,23 @@ export default function SearchBar({ value, onChange, mode, onModeChange, placeho
         </div>
 
         {/* Mode Toggle with Tooltips */}
-        <div className="flex items-center gap-0">
-          {/* Fuzzy Button with Tooltip */}
-          <div className="relative">
-            <button
-              onClick={() => onModeChange('fuzzy')}
-              onMouseEnter={() => setShowFuzzyTooltip(true)}
-              onMouseLeave={() => setShowFuzzyTooltip(false)}
-              className={`rounded-l-lg border border-zinc-300 px-3 py-2 text-xs font-medium transition-colors dark:border-zinc-700 ${
-                mode === 'fuzzy'
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
-              }`}
-              type="button"
-            >
-              Fuzzy
-            </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0">
+            {/* Fuzzy Button with Tooltip */}
+            <div className="relative">
+              <button
+                onClick={() => onModeChange('fuzzy')}
+                onMouseEnter={() => setShowFuzzyTooltip(true)}
+                onMouseLeave={() => setShowFuzzyTooltip(false)}
+                className={`rounded-l-lg border border-zinc-300 px-3 py-2 text-xs font-medium transition-colors dark:border-zinc-700 ${
+                  mode === 'fuzzy'
+                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                    : 'bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                }`}
+                type="button"
+              >
+                Fuzzy
+              </button>
 
             {showFuzzyTooltip && (
               <div className="absolute right-0 top-12 z-50 w-96 rounded-lg border border-zinc-200 bg-white p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
@@ -190,6 +194,23 @@ export default function SearchBar({ value, onChange, mode, onModeChange, placeho
               </div>
             )}
           </div>
+          </div>
+
+          {/* Filter Toggle Button */}
+          {onToggleFilters && (
+            <button
+              onClick={onToggleFilters}
+              className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                showFilters
+                  ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                  : 'border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+              }`}
+              type="button"
+              title="Toggle filters"
+            >
+              <Filter className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>
