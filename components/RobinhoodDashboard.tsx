@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, MouseEvent as ReactMouseEvent } from "react";
+import { useState, useRef, useEffect, MouseEvent as ReactMouseEvent, useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -15,15 +15,18 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from "recharts";
-import { DepositData, PortfolioValueData } from "@/lib/types";
+import { DepositData, PortfolioValueData, RobinhoodTransaction } from "@/lib/types";
 import {
   calculateCumulativeDeposits,
   calculateRangeStatistics,
 } from "@/lib/dataTransforms";
 import StatsBlock, { StatItem } from "./StatsBlock";
+import SearchBar, { SearchMode } from "./SearchBar";
+import fuzzysort from "fuzzysort";
 
 interface RobinhoodDashboardProps {
   data: DepositData[];
+  transactions?: RobinhoodTransaction[];
   portfolioData?: PortfolioValueData[];
   onLoadPortfolio?: () => void;
   isLoadingPortfolio?: boolean;
@@ -31,6 +34,7 @@ interface RobinhoodDashboardProps {
 
 export default function RobinhoodDashboard({
   data,
+  transactions = [],
   portfolioData = [],
   onLoadPortfolio,
   isLoadingPortfolio = false,
@@ -56,6 +60,43 @@ export default function RobinhoodDashboard({
     width: number;
   } | null>(null);
   const [currentTime] = useState(() => Date.now()); // Runs once on mount
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode>("fuzzy");
+
+  // Filter transactions based on search query
+  const filteredTransactions = useMemo(() => {
+    if (!searchQuery.trim() || transactions.length === 0) {
+      return transactions;
+    }
+
+    const query = searchQuery.trim();
+
+    if (searchMode === "fuzzy") {
+      // Fuzzy search on Instrument and Description fields
+      const results = fuzzysort.go(query, transactions, {
+        keys: ["Instrument", "Description"],
+        threshold: -10000,
+      });
+      return results.map((result) => result.obj);
+    } else if (searchMode === "regex") {
+      // Regex search
+      try {
+        const regex = new RegExp(query, "i");
+        return transactions.filter(
+          (t) =>
+            regex.test(t.Instrument || "") ||
+            regex.test(t.Description || "")
+        );
+      } catch (e) {
+        // Invalid regex, return all
+        return transactions;
+      }
+    }
+
+    return transactions;
+  }, [searchQuery, searchMode, transactions]);
 
   // Calculate chart dimensions on mount and resize
   useEffect(() => {
@@ -363,6 +404,100 @@ export default function RobinhoodDashboard({
           },
         ]}
       />
+
+      {/* Transaction Search and List */}
+      {transactions.length > 0 && (
+        <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-4 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+            Transaction History
+          </h2>
+
+          <div className="mb-4">
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              mode={searchMode}
+              onModeChange={setSearchMode}
+              placeholder="Search by company name or ticker..."
+            />
+          </div>
+
+          <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
+            Showing {filteredTransactions.length} of {transactions.length} transactions
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-zinc-100 dark:bg-zinc-800">
+                <tr className="border-b border-zinc-200 dark:border-zinc-700">
+                  <th className="px-3 py-2 text-left font-medium text-zinc-900 dark:text-zinc-50">Date</th>
+                  <th className="px-3 py-2 text-left font-medium text-zinc-900 dark:text-zinc-50">Instrument</th>
+                  <th className="px-3 py-2 text-left font-medium text-zinc-900 dark:text-zinc-50">Description</th>
+                  <th className="px-3 py-2 text-left font-medium text-zinc-900 dark:text-zinc-50">Type</th>
+                  <th className="px-3 py-2 text-right font-medium text-zinc-900 dark:text-zinc-50">Quantity</th>
+                  <th className="px-3 py-2 text-right font-medium text-zinc-900 dark:text-zinc-50">Price</th>
+                  <th className="px-3 py-2 text-right font-medium text-zinc-900 dark:text-zinc-50">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTransactions.map((transaction, index) => {
+                  // Determine if it's a buy or sell based on Trans Code and Description
+                  const transCode = transaction["Trans Code"]?.toUpperCase() || "";
+                  const description = transaction.Description?.toLowerCase() || "";
+
+                  // Buy transactions are green, Sell transactions are red
+                  const isBuy = transCode === "BUY" || description.includes("buy");
+                  const isSell = transCode === "SELL" || transCode === "SLL" || description.includes("sell");
+
+                  let amountColor = "text-zinc-900 dark:text-zinc-50"; // Default
+                  if (isBuy) {
+                    amountColor = "text-green-600 dark:text-green-400";
+                  } else if (isSell) {
+                    amountColor = "text-red-600 dark:text-red-400";
+                  }
+
+                  return (
+                    <tr
+                      key={index}
+                      className="border-b border-zinc-100 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
+                    >
+                      <td className="px-3 py-2 text-zinc-900 dark:text-zinc-50">
+                        {new Date(transaction["Activity Date"]).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-50">
+                        {transaction.Instrument || "-"}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">
+                        {transaction.Description || "-"}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">
+                        {transaction["Trans Code"] || "-"}
+                      </td>
+                      <td className="px-3 py-2 text-right text-zinc-900 dark:text-zinc-50">
+                        {transaction.Quantity || "-"}
+                      </td>
+                      <td className="px-3 py-2 text-right text-zinc-900 dark:text-zinc-50">
+                        {transaction.Price
+                          ? `$${parseFloat(transaction.Price).toFixed(2)}`
+                          : "-"}
+                      </td>
+                      <td className={`px-3 py-2 text-right font-medium ${amountColor}`}>
+                        {transaction.Amount
+                          ? transaction.Amount.replace(/[()]/g, "")
+                          : "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mb-4 flex items-center justify-between">

@@ -1,6 +1,35 @@
 import Papa from 'papaparse';
 import { RobinhoodTransaction, DepositData } from './types';
 
+// Parse all raw Robinhood transactions (including trades, dividends, etc.)
+export function parseAllRobinhoodTransactions(file: File): Promise<RobinhoodTransaction[]> {
+  return new Promise((resolve, reject) => {
+    Papa.parse<RobinhoodTransaction>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        try {
+          // Return all transactions, sorted by date
+          const transactions = results.data
+            .filter((row) => row["Activity Date"] && row["Activity Date"].trim() !== "")
+            .map((row) => ({
+              ...row,
+              timestamp: new Date(row["Activity Date"]).getTime(),
+            }))
+            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Sort newest first
+
+          resolve(transactions as RobinhoodTransaction[]);
+        } catch (error) {
+          reject(error);
+        }
+      },
+      error: (error) => {
+        reject(error);
+      },
+    });
+  });
+}
+
 export function parseRobinhoodCSV(file: File): Promise<DepositData[]> {
   return new Promise((resolve, reject) => {
     Papa.parse<RobinhoodTransaction>(file, {

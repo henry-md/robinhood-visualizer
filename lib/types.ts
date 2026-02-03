@@ -8,6 +8,7 @@ export interface RobinhoodTransaction {
   "Quantity": string;
   "Price": string;
   "Amount": string;
+  timestamp?: number; // Added for sorting/filtering
 }
 
 export interface TransactionData {

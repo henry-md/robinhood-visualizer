@@ -5,8 +5,8 @@ import FileUpload from "@/components/FileUpload";
 import RobinhoodDashboard from "@/components/RobinhoodDashboard";
 import ChaseDashboard from "@/components/ChaseDashboard";
 import RecentUploads from "@/components/RecentUploads";
-import { parseRobinhoodCSV } from "@/lib/csvParser";
-import { DepositData, PortfolioValueData, ChaseTransaction, ChaseFile, FileType } from "@/lib/types";
+import { parseRobinhoodCSV, parseAllRobinhoodTransactions } from "@/lib/csvParser";
+import { DepositData, PortfolioValueData, ChaseTransaction, ChaseFile, FileType, RobinhoodTransaction } from "@/lib/types";
 import { parseAllTransactions, getAllUniqueTickers } from "@/lib/portfolioCalculations";
 import { fetchStockPrices, calculatePortfolioValues } from "@/lib/portfolioValue";
 import { detectFileType } from "@/lib/fileTypeDetector";
@@ -14,6 +14,7 @@ import { parseChaseCSV } from "@/lib/chaseParser";
 
 export default function Home() {
   const [deposits, setDeposits] = useState<DepositData[]>([]);
+  const [robinhoodTransactions, setRobinhoodTransactions] = useState<RobinhoodTransaction[]>([]);
   const [portfolioData, setPortfolioData] = useState<PortfolioValueData[]>([]);
   const [chaseFiles, setChaseFiles] = useState<ChaseFile[]>([]);
   const [fileType, setFileType] = useState<FileType>('unknown');
@@ -73,8 +74,12 @@ export default function Home() {
 
       if (detectedType === 'robinhood') {
         setFileType('robinhood');
-        const parsedDeposits = await parseRobinhoodCSV(file);
+        const [parsedDeposits, allTransactions] = await Promise.all([
+          parseRobinhoodCSV(file),
+          parseAllRobinhoodTransactions(file)
+        ]);
         setDeposits(parsedDeposits);
+        setRobinhoodTransactions(allTransactions);
         // Save to recent uploads
         await saveUploadToRecent('robinhood', file);
       } else if (detectedType === 'chase') {
@@ -150,6 +155,7 @@ export default function Home() {
   const handleClearAllFiles = () => {
     setChaseFiles([]);
     setDeposits([]);
+    setRobinhoodTransactions([]);
     setPortfolioData([]);
     setCsvFile(null);
     setFileType('unknown');
@@ -171,8 +177,12 @@ export default function Home() {
 
         setFileType('robinhood');
         setCsvFile(file);
-        const parsedDeposits = await parseRobinhoodCSV(file);
+        const [parsedDeposits, allTransactions] = await Promise.all([
+          parseRobinhoodCSV(file),
+          parseAllRobinhoodTransactions(file)
+        ]);
         setDeposits(parsedDeposits);
+        setRobinhoodTransactions(allTransactions);
       } else if (upload.fileType === 'chase') {
         // Restore Chase files
         setFileType('chase');
@@ -289,6 +299,7 @@ export default function Home() {
           {fileType === 'robinhood' && deposits.length > 0 && (
             <RobinhoodDashboard
               data={deposits}
+              transactions={robinhoodTransactions}
               portfolioData={portfolioData}
               onLoadPortfolio={handleLoadPortfolio}
               isLoadingPortfolio={loading && portfolioData.length === 0}

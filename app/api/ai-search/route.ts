@@ -96,7 +96,7 @@ Instructions:
     // Extract tool call result
     const toolCall = response.choices[0]?.message?.tool_calls?.[0];
 
-    if (!toolCall || !toolCall.function.arguments) {
+    if (!toolCall || !('function' in toolCall) || !toolCall.function?.arguments) {
       return NextResponse.json({ error: 'No tool call in response' }, { status: 500 });
     }
 
