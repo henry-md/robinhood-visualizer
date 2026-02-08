@@ -61,6 +61,17 @@ export interface PortfolioValueData {
   stockValue: number;
 }
 
+// Subscription detection types
+export interface SubscriptionInfo {
+  isSubscription: boolean;
+  merchantGroup: string;
+  recurrence: 'monthly' | 'yearly' | 'weekly' | 'bi-weekly' | 'unknown';
+  confidence: 'high' | 'medium' | 'low';
+  nextExpectedDate?: number;
+  relatedTransactions: number[]; // indices of related transactions
+  typicalAmount: number;
+}
+
 // Chase transaction types
 export interface ChaseTransaction {
   details?: 'CREDIT' | 'DEBIT'; // Only for checking accounts
@@ -76,6 +87,7 @@ export interface ChaseTransaction {
   timestamp: number;
   accountType: 'checking' | 'credit'; // Track which type of account
   filename?: string; // Track source file for combined view
+  subscriptionInfo?: SubscriptionInfo; // Subscription detection metadata
 }
 
 export interface ChaseFile {

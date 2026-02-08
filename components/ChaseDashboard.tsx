@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import fuzzysort from "fuzzysort";
-import { ChaseFile } from "@/lib/types";
+import { ChaseFile, ChaseTransaction } from "@/lib/types";
 import ChaseTransactions from "./ChaseTransactions";
 import ChaseFileList from "./ChaseFileList";
 import StatsBlock from "./StatsBlock";
@@ -10,6 +10,7 @@ import SearchBar, { SearchMode } from "./SearchBar";
 import TransactionFilters, { FilterState } from "./TransactionFilters";
 import AINotification from "./AINotification";
 import { calculateChaseStats } from "@/lib/chaseStats";
+import { detectSubscriptions } from "@/lib/subscriptionDetector";
 
 interface ChaseDashboardProps {
   files: ChaseFile[];
@@ -37,6 +38,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
   const [sortColumn, setSortColumn] = useState<'date' | 'description' | 'category' | 'type' | 'amount' | 'balance'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [userHasSetSort, setUserHasSetSort] = useState(false);
+  const [showSubscriptionsOnly, setShowSubscriptionsOnly] = useState(false);
 
   // Reset filters
   const resetFilters = () => {
@@ -73,6 +75,59 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
   }, [files, safeActiveTab]);
 
   const isCombinedView = safeActiveTab === -1;
+
+  // Detect subscriptions and annotate transactions
+  const transactionsWithSubscriptions = useMemo(() => {
+    // Detect subscriptions from active transactions
+    const subscriptions = detectSubscriptions(activeTransactions);
+
+    // Create a map from transaction to subscription info
+    const subscriptionMap = new Map<ChaseTransaction, {
+      merchantGroup: string;
+      recurrence: 'monthly' | 'yearly' | 'weekly' | 'bi-weekly' | 'unknown';
+      confidence: 'high' | 'medium' | 'low';
+      nextExpectedDate?: number;
+      typicalAmount: number;
+      relatedIndices: number[];
+    }>();
+
+    // Build the map
+    for (const sub of subscriptions) {
+      const relatedIndices = sub.transactions.map(tx =>
+        activeTransactions.indexOf(tx)
+      );
+      for (const tx of sub.transactions) {
+        subscriptionMap.set(tx, {
+          merchantGroup: sub.normalizedName,
+          recurrence: sub.pattern.interval,
+          confidence: sub.confidence,
+          nextExpectedDate: sub.pattern.nextExpectedDate,
+          typicalAmount: sub.typicalAmount,
+          relatedIndices
+        });
+      }
+    }
+
+    // Annotate transactions with subscription info
+    return activeTransactions.map(tx => {
+      const subInfo = subscriptionMap.get(tx);
+      if (subInfo) {
+        return {
+          ...tx,
+          subscriptionInfo: {
+            isSubscription: true,
+            merchantGroup: subInfo.merchantGroup,
+            recurrence: subInfo.recurrence,
+            confidence: subInfo.confidence,
+            nextExpectedDate: subInfo.nextExpectedDate,
+            relatedTransactions: subInfo.relatedIndices,
+            typicalAmount: subInfo.typicalAmount
+          }
+        };
+      }
+      return tx;
+    });
+  }, [activeTransactions]);
 
   // AI Search function
   const performAISearch = async () => {
@@ -137,7 +192,12 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
 
   // Filter transactions based on search mode and filters
   const filteredTransactions = useMemo(() => {
-    let filtered = activeTransactions;
+    let filtered = transactionsWithSubscriptions;
+
+    // Apply subscription filter if enabled
+    if (showSubscriptionsOnly) {
+      filtered = filtered.filter(tx => tx.subscriptionInfo?.isSubscription);
+    }
 
     // Only apply filters if the filter panel is visible
     if (showFilters) {
@@ -217,7 +277,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
         return filtered;
       }
     }
-  }, [activeTransactions, searchQuery, searchMode, filters, showFilters, aiIndices, isAiSearching, aiSearchPerformed]);
+  }, [transactionsWithSubscriptions, searchQuery, searchMode, filters, showFilters, aiIndices, isAiSearching, aiSearchPerformed, showSubscriptionsOnly]);
 
   // Sort transactions based on selected column and direction
   const sortedTransactions = useMemo(() => {
@@ -342,6 +402,8 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
           filters={filters}
           onChange={setFilters}
           onReset={resetFilters}
+          showSubscriptionsOnly={showSubscriptionsOnly}
+          onToggleSubscriptions={setShowSubscriptionsOnly}
         />
       )}
 

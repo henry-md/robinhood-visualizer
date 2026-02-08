@@ -86,6 +86,9 @@ export default function ChaseTransactions({
                     Account
                   </th>
                 )}
+                <th className="pb-3 pr-2 font-medium text-zinc-900 dark:text-zinc-50" title="Subscription">
+                  Sub
+                </th>
                 <th className="pb-3 pr-4 font-medium text-zinc-900 dark:text-zinc-50">
                   <SortButton column="date" label="Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={onSort} />
                 </th>
@@ -129,6 +132,28 @@ export default function ChaseTransactions({
                       </div>
                     </td>
                   )}
+                  <td className="py-3 pr-2">
+                    {transaction.subscriptionInfo?.isSubscription && (
+                      <div className="group/sub relative inline-flex items-center">
+                        <span className="text-base" title="Subscription detected">
+                          🔄
+                        </span>
+                        <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-zinc-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover/sub:opacity-100 dark:bg-zinc-50 dark:text-zinc-900">
+                          <div className="font-semibold">
+                            {transaction.subscriptionInfo.recurrence.charAt(0).toUpperCase() + transaction.subscriptionInfo.recurrence.slice(1)} subscription
+                          </div>
+                          <div className="mt-1 text-zinc-300 dark:text-zinc-600">
+                            ~${transaction.subscriptionInfo.typicalAmount.toFixed(2)} • {transaction.subscriptionInfo.confidence} confidence
+                          </div>
+                          {transaction.subscriptionInfo.nextExpectedDate && (
+                            <div className="mt-1 text-zinc-300 dark:text-zinc-600">
+                              Next: {new Date(transaction.subscriptionInfo.nextExpectedDate).toLocaleDateString()}
+                            </div>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </td>
                   <td className="py-3 pr-4 text-zinc-700 dark:text-zinc-300">
                     {transaction.postingDate}
                   </td>

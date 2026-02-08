@@ -13,10 +13,12 @@ interface TransactionFiltersProps {
   filters: FilterState;
   onChange: (filters: FilterState) => void;
   onReset: () => void;
+  showSubscriptionsOnly: boolean;
+  onToggleSubscriptions: (show: boolean) => void;
 }
 
-export default function TransactionFilters({ filters, onChange, onReset }: TransactionFiltersProps) {
-  const hasActiveFilters = filters.minAmount || filters.maxAmount || filters.startDate || filters.endDate;
+export default function TransactionFilters({ filters, onChange, onReset, showSubscriptionsOnly, onToggleSubscriptions }: TransactionFiltersProps) {
+  const hasActiveFilters = filters.minAmount || filters.maxAmount || filters.startDate || filters.endDate || showSubscriptionsOnly;
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
@@ -24,7 +26,10 @@ export default function TransactionFilters({ filters, onChange, onReset }: Trans
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Filters</h3>
         {hasActiveFilters && (
           <button
-            onClick={onReset}
+            onClick={() => {
+              onReset();
+              onToggleSubscriptions(false);
+            }}
             className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
           >
             <X className="h-3 w-3" />
@@ -34,6 +39,23 @@ export default function TransactionFilters({ filters, onChange, onReset }: Trans
       </div>
 
       <div className="space-y-4">
+        {/* Subscription Filter */}
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="subscriptions-only"
+            checked={showSubscriptionsOnly}
+            onChange={(e) => onToggleSubscriptions(e.target.checked)}
+            className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-2 focus:ring-zinc-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          />
+          <label
+            htmlFor="subscriptions-only"
+            className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          >
+            Show subscriptions only
+          </label>
+        </div>
+
         {/* Amount Range */}
         <div className="space-y-2">
           <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
