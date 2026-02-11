@@ -27,6 +27,8 @@ export interface SubscriptionCandidate {
   typicalAmount: number;
   amountVariance: number;
   confidence: 'high' | 'medium' | 'low';
+  isActive: boolean;
+  lastTransactionDate: number; // timestamp
 }
 
 interface AmountGroup {
@@ -45,6 +47,26 @@ export function normalizeDescription(desc: string): string {
     .split(/\s+/)
     .slice(0, 3) // Take first 3 words
     .join(' ');
+}
+
+// Determine if a subscription is still active based on last transaction date
+export function isSubscriptionActive(
+  lastTransactionTimestamp: number,
+  interval: RecurrencePattern['interval'],
+  now: number = Date.now()
+): boolean {
+  const daysSinceLastTransaction = (now - lastTransactionTimestamp) / (1000 * 60 * 60 * 24);
+
+  // Buffer thresholds for each interval type
+  const thresholds = {
+    'weekly': 21,        // 3 weeks
+    'bi-weekly': 35,     // 2.5 cycles
+    'monthly': 60,       // 2 months
+    'yearly': 400,       // 1 year + buffer
+    'unknown': 60        // Default to monthly threshold
+  };
+
+  return daysSinceLastTransaction <= thresholds[interval];
 }
 
 // Levenshtein distance for string similarity
@@ -266,6 +288,10 @@ export function detectSubscriptions(
         }
       });
 
+      // Determine if subscription is active
+      const lastTransactionDate = Math.max(...timestamps);
+      const isActive = isSubscriptionActive(lastTransactionDate, pattern.interval);
+
       // Flag as subscription!
       subscriptions.push({
         merchantName,
@@ -274,7 +300,9 @@ export function detectSubscriptions(
         pattern,
         typicalAmount: avgAmount,
         amountVariance: variance,
-        confidence: overallConfidence
+        confidence: overallConfidence,
+        isActive,
+        lastTransactionDate
       });
     }
   }

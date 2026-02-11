@@ -70,6 +70,8 @@ export interface SubscriptionInfo {
   nextExpectedDate?: number;
   relatedTransactions: number[]; // indices of related transactions
   typicalAmount: number;
+  isActive: boolean;
+  lastTransactionDate: number;
 }
 
 // Chase transaction types

@@ -9,6 +9,7 @@ import StatsBlock from "./StatsBlock";
 import SearchBar, { SearchMode } from "./SearchBar";
 import TransactionFilters, { FilterState } from "./TransactionFilters";
 import AINotification from "./AINotification";
+import SubscriptionSummary from "./SubscriptionSummary";
 import { calculateChaseStats } from "@/lib/chaseStats";
 import { detectSubscriptions } from "@/lib/subscriptionDetector";
 
@@ -77,7 +78,7 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
   const isCombinedView = safeActiveTab === -1;
 
   // Detect subscriptions and annotate transactions
-  const transactionsWithSubscriptions = useMemo(() => {
+  const { transactionsWithSubscriptions, detectedSubscriptions } = useMemo(() => {
     // Detect subscriptions from active transactions
     const subscriptions = detectSubscriptions(activeTransactions);
 
@@ -89,6 +90,8 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
       nextExpectedDate?: number;
       typicalAmount: number;
       relatedIndices: number[];
+      isActive: boolean;
+      lastTransactionDate: number;
     }>();
 
     // Build the map
@@ -103,13 +106,15 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
           confidence: sub.confidence,
           nextExpectedDate: sub.pattern.nextExpectedDate,
           typicalAmount: sub.typicalAmount,
-          relatedIndices
+          relatedIndices,
+          isActive: sub.isActive,
+          lastTransactionDate: sub.lastTransactionDate
         });
       }
     }
 
     // Annotate transactions with subscription info
-    return activeTransactions.map(tx => {
+    const annotatedTransactions = activeTransactions.map(tx => {
       const subInfo = subscriptionMap.get(tx);
       if (subInfo) {
         return {
@@ -121,12 +126,19 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
             confidence: subInfo.confidence,
             nextExpectedDate: subInfo.nextExpectedDate,
             relatedTransactions: subInfo.relatedIndices,
-            typicalAmount: subInfo.typicalAmount
+            typicalAmount: subInfo.typicalAmount,
+            isActive: subInfo.isActive,
+            lastTransactionDate: subInfo.lastTransactionDate
           }
         };
       }
       return tx;
     });
+
+    return {
+      transactionsWithSubscriptions: annotatedTransactions,
+      detectedSubscriptions: subscriptions
+    };
   }, [activeTransactions]);
 
   // AI Search function
@@ -371,6 +383,8 @@ export default function ChaseDashboard({ files, onRemoveFile, onClearAll, onAddM
           },
         ]}
       />
+
+      <SubscriptionSummary subscriptions={detectedSubscriptions} />
 
       <SearchBar
         value={searchQuery}
